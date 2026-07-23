@@ -1,0 +1,87 @@
+openapi: 3.1.0
+info:
+  title: LiveKit Meeting API
+  version: 1.0.0
+  description: Backend API for the LiveKit Meeting Application
+  license:
+    name: MIT
+servers:
+  - url: http://api.livekitmeeting.local/api/v1
+    description: Production server
+security:
+  - bearerAuth: []
+paths:
+  /meetings:
+    post:
+      operationId: createMeeting
+      summary: Create a new meeting
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                maximumParticipants:
+                  type: integer
+                waitingRoomEnabled:
+                  type: boolean
+                joinBeforeHostEnabled:
+                  type: boolean
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad Request
+  /meetings/{meetingCode}/start:
+    post:
+      operationId: startMeeting
+      summary: Start a meeting
+      parameters:
+        - name: meetingCode
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad Request
+        '404':
+          description: Not Found
+  /meetings/{meetingCode}/end:
+    post:
+      operationId: endMeeting
+      summary: End a meeting
+      parameters:
+        - name: meetingCode
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad Request
+        '404':
+          description: Not Found
+  /health:
+    get:
+      operationId: checkHealth
+      summary: Health check
+      security: []
+      responses:
+        '200':
+          description: OK
+        '500':
+          description: Internal Server Error
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

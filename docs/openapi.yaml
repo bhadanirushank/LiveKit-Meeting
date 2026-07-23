@@ -1,0 +1,890 @@
+openapi: 3.1.0
+info:
+  title: LiveKit Meeting API
+  version: 1.0.0
+  description: >-
+    Backend API for the LiveKit Meeting Application. Implements secure ephemeral
+    meetings, waiting room management, live polling, and token issuance.
+  license:
+    name: MIT
+    identifier: MIT
+servers:
+  - url: http://api.livekitmeeting.local/api/v1
+    description: Production server
+security:
+  - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    MeetingCreateRequest:
+      type: object
+      required:
+        - title
+      properties:
+        title:
+          type: string
+          example: Weekly Sync
+        maximumParticipants:
+          type:
+            - integer
+            - 'null'
+          example: 50
+        waitingRoomEnabled:
+          type: boolean
+          example: true
+        joinBeforeHostEnabled:
+          type: boolean
+          example: false
+        passcode:
+          type:
+            - string
+            - 'null'
+          example: '123456'
+    MeetingCreateResponse:
+      type: object
+      properties:
+        publicMeetingCode:
+          type: string
+          example: a1b2c3d4
+        hostSecret:
+          type: string
+          example: xyz123abc456
+    HostExchangeRequest:
+      type: object
+      required:
+        - publicMeetingCode
+        - hostSecret
+      properties:
+        publicMeetingCode:
+          type: string
+        hostSecret:
+          type: string
+    TokenResponse:
+      type: object
+      properties:
+        token:
+          type: string
+    JoinRequestInput:
+      type: object
+      required:
+        - displayName
+        - deviceSessionId
+      properties:
+        displayName:
+          type: string
+        deviceSessionId:
+          type: string
+          format: uuid
+        passcode:
+          type:
+            - string
+            - 'null'
+    JoinRequestResponse:
+      type: object
+      properties:
+        requestId:
+          type: string
+          format: uuid
+    PollCreateRequest:
+      type: object
+      required:
+        - question
+        - options
+      properties:
+        question:
+          type: string
+        options:
+          type: array
+          items:
+            type: string
+        allowMultipleSelection:
+          type: boolean
+        isAnonymous:
+          type: boolean
+    PollVoteRequest:
+      type: object
+      required:
+        - optionIndices
+      properties:
+        optionIndices:
+          type: array
+          items:
+            type: integer
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          example: MEETING_NOT_FOUND
+        message:
+          type: string
+          example: The requested meeting does not exist.
+paths:
+  /meetings:
+    post:
+      operationId: createMeeting
+      summary: Create a new meeting
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MeetingCreateRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeetingCreateResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Too Many Requests
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Service Unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /host-sessions/exchange:
+    post:
+      operationId: exchangeHostSecret
+      summary: Exchange host secret for JWT
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HostExchangeRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Too Many Requests
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /host-sessions/livekit-token:
+    post:
+      operationId: getHostLiveKitToken
+      summary: Issue a LiveKit token for the host
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Service Unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /meetings/{meetingCode}/join-request:
+    post:
+      operationId: submitJoinRequest
+      summary: Submit a request to join a meeting
+      security: []
+      parameters:
+        - name: meetingCode
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JoinRequestInput'
+      responses:
+        '202':
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JoinRequestResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Too Many Requests
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Service Unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /join-requests/{requestId}/livekit-token:
+    post:
+      operationId: pollJoinRequest
+      summary: Poll for admission status and get LiveKit token
+      security: []
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - deviceSessionId
+              properties:
+                deviceSessionId:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '202':
+          description: Still waiting in the waiting room
+        '403':
+          description: Forbidden (Rejected or Removed)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Service Unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /meetings/{meetingCode}/waiting-room:
+    get:
+      operationId: getWaitingRoom
+      summary: List pending join requests
+      parameters:
+        - name: meetingCode
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /meetings/{meetingCode}/waiting-room/{requestId}/admit:
+    post:
+      operationId: admitParticipant
+      summary: Admit a participant from the waiting room
+      parameters:
+        - name: meetingCode
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: No Content
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Service Unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /meetings/{meetingCode}/waiting-room/{requestId}/reject:
+    post:
+      operationId: rejectParticipant
+      summary: Reject a participant from the waiting room
+      parameters:
+        - name: meetingCode
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: No Content
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Service Unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /meetings/{meetingCode}/start:
+    post:
+      operationId: startMeeting
+      summary: Start a meeting
+      parameters:
+        - name: meetingCode
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Service Unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /meetings/{meetingCode}/end:
+    post:
+      operationId: endMeeting
+      summary: End a meeting
+      parameters:
+        - name: meetingCode
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Service Unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /meetings/{meetingCode}/lock:
+    post:
+      operationId: lockMeeting
+      summary: Lock a meeting
+      parameters:
+        - name: meetingCode
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Service Unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /meetings/{meetingCode}/unlock:
+    post:
+      operationId: unlockMeeting
+      summary: Unlock a meeting
+      parameters:
+        - name: meetingCode
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Service Unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /meetings/{meetingCode}/polls:
+    post:
+      operationId: createPoll
+      summary: Create a new poll
+      parameters:
+        - name: meetingCode
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PollCreateRequest'
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Service Unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /meetings/{meetingCode}/polls/{pollId}/vote:
+    post:
+      operationId: votePoll
+      summary: Vote on an active poll
+      security: []
+      parameters:
+        - name: meetingCode
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: pollId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PollVoteRequest'
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Service Unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /meetings/{meetingCode}/cancel:
+    post:
+      operationId: cancelMeeting
+      summary: Cancel a meeting
+      parameters:
+        - name: meetingCode
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+        '400': &ref_0
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404': &ref_1
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /meetings/{meetingCode}/participants/{participantId}/remove:
+    post:
+      operationId: removeParticipantPost
+      summary: Remove a participant
+      parameters:
+        - name: meetingCode
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: participantId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+        '400': *ref_0
+        '404': *ref_1
+  /meetings/{meetingCode}/participants/{participantId}/mute:
+    post:
+      operationId: muteParticipant
+      summary: Mute a participant
+      parameters:
+        - name: meetingCode
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: participantId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+        '400': *ref_0
+        '404': *ref_1
+  /meetings/{meetingCode}/participants/{participantId}/ask-to-unmute:
+    post:
+      operationId: askToUnmuteParticipant
+      summary: Ask participant to unmute
+      parameters:
+        - name: meetingCode
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: participantId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+        '400': *ref_0
+        '404': *ref_1
+  /meetings/{meetingCode}/participants/{participantId}/disable-publishing:
+    post:
+      operationId: disablePublishing
+      summary: Disable publishing for a participant
+      parameters:
+        - name: meetingCode
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: participantId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+        '400': *ref_0
+        '404': *ref_1
+  /meetings/{meetingCode}/participants/{participantId}/restore-publishing:
+    post:
+      operationId: restorePublishing
+      summary: Restore publishing for a participant
+      parameters:
+        - name: meetingCode
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: participantId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+        '400': *ref_0
+        '404': *ref_1
+  /meetings/{meetingCode}/participants/{participantId}/promote-cohost:
+    post:
+      operationId: promoteCohost
+      summary: Promote to cohost
+      parameters:
+        - name: meetingCode
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: participantId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+        '400': *ref_0
+        '404': *ref_1
+  /meetings/{meetingCode}/participants/{participantId}/demote-cohost:
+    post:
+      operationId: demoteCohost
+      summary: Demote from cohost
+      parameters:
+        - name: meetingCode
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: participantId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+        '400': *ref_0
+        '404': *ref_1
+  /webhooks/livekit:
+    post:
+      operationId: livekitWebhook
+      summary: Handle LiveKit webhooks
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/webhook+json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '503':
+          description: Service Unavailable

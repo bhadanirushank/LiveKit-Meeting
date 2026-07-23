@@ -1,0 +1,19 @@
+{
+  "name": "livekit-meeting",
+  "version": "1.0.0",
+  "description": "A Native Android Video-Meeting Application backed by a Kotlin Ktor server and self-hosted LiveKit.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@redocly/cli": "^1.22.0"
+  }
+}

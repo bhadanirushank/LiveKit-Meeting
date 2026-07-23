@@ -1,0 +1,10 @@
+{
+  "name": "livekit-client-test",
+  "version": "1.0.0",
+  "description": "Integration test for LiveKit connections",
+  "main": "client-test.js",
+  "type": "module",
+  "dependencies": {
+    "@livekit/rtc-node": "0.13.31"
+  }
+}

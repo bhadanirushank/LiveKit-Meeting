@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  toxiproxy:
+    image: ghcr.io/shopify/toxiproxy:2.12.0
+    command: -host 0.0.0.0
+    ports:
+      # Administration API strictly bound to localhost
+      - "127.0.0.1:8474:8474"
+      # Proxied services
+      - "15432:15432" # PostgreSQL Proxy
+      - "16379:16379" # Redis Proxy
+      - "17880:17880" # LiveKit Control API Proxy
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      livekit:
+        condition: service_started
