@@ -76,6 +76,7 @@ dependencyCheck {
     if (!nvdKey.isNullOrBlank()) {
         nvd.apiKey = nvdKey
     }
+    analyzers.ossIndex.enabled = false
 }
 
 tasks.named("dependencyCheckAnalyze") {
