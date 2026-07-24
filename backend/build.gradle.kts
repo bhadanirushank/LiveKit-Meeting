@@ -73,10 +73,17 @@ dependencyCheck {
     failOnError = true
     formats = listOf("HTML", "JSON", "SARIF")
     val nvdKey = System.getenv("NVD_API_KEY")
-    if (nvdKey.isNullOrBlank()) {
-        throw GradleException("NVD_API_KEY environment variable is required for dependencyCheckAnalyze but was not found.")
+    if (!nvdKey.isNullOrBlank()) {
+        nvd.apiKey = nvdKey
     }
-    nvd.apiKey = nvdKey
+}
+
+tasks.named("dependencyCheckAnalyze") {
+    doFirst {
+        if (System.getenv("NVD_API_KEY").isNullOrBlank()) {
+            throw GradleException("NVD_API_KEY environment variable is required for dependencyCheckAnalyze but was not found.")
+        }
+    }
 }
 
 val npmCiLiveKitTest by tasks.registering(Exec::class) {

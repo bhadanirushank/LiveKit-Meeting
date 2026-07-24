@@ -19,7 +19,7 @@ permissions:
 jobs:
   dependency-check:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 90
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -31,13 +31,24 @@ jobs:
           distribution: 'temurin'
           cache: 'gradle'
 
+      - name: Cache NVD Database
+        uses: actions/cache@v4
+        with:
+          path: ~/.gradle/dependency-check-data
+          key: nvd-data-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            nvd-data-${{ runner.os }}-
+
       - name: Run Dependency-Check
         working-directory: backend
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         run: |
+          echo "Starting OWASP Dependency-Check analysis..."
+          echo "NVD_API_KEY is configured in the environment (value hidden)."
           chmod +x gradlew
           ./gradlew dependencyCheckAnalyze --no-daemon --stacktrace
+          echo "Dependency-Check analysis completed."
 
       - name: Upload Reports
         uses: actions/upload-artifact@v4
