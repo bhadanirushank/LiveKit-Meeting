@@ -19,17 +19,22 @@ object TestSecrets {
     }
 
     fun setupTestProperties() {
+        val testDbName = System.getenv("POSTGRES_DB") ?: "livekit_meeting"
         System.setProperty("PORT", "8081")
-        System.setProperty("DB_URL", "jdbc:postgresql://localhost:15432/livekit_meeting")
-        System.setProperty("DB_USER", "postgres")
-        System.setProperty("DB_PASSWORD", "postgres")
+        System.setProperty("POSTGRES_DB", testDbName)
+        System.setProperty("POSTGRES_USER", System.getenv("POSTGRES_USER") ?: "postgres")
+        System.setProperty("POSTGRES_PASSWORD", System.getenv("POSTGRES_PASSWORD") ?: "postgres_password_placeholder")
+        System.setProperty("POSTGRES_HOST", "localhost")
+        System.setProperty("POSTGRES_PORT", "5432")
         System.setProperty("REDIS_HOST", "localhost")
-        System.setProperty("REDIS_PORT", "16379")
+        System.setProperty("REDIS_PORT", "6379")
         System.setProperty("REDIS_PASSWORD", "redis_password_placeholder")
         System.setProperty("LIVEKIT_API_KEY", liveKitApiKey)
         System.setProperty("LIVEKIT_API_SECRET", liveKitApiSecret)
         System.setProperty("JWT_SECRET", jwtSecret)
         System.setProperty("JWT_ISSUER", "livekit-meeting-app")
         System.setProperty("JWT_AUDIENCE", "livekit-meeting-app")
+        System.setProperty("RATE_LIMIT", "10000")
+        System.setProperty("DB_MAX_POOL_SIZE", "3")
     }
 }

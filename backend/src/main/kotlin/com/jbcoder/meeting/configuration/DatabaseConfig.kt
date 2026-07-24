@@ -14,6 +14,10 @@ object DatabaseConfig {
     private lateinit var dataSource: HikariDataSource
 
     fun init(config: AppConfig) {
+        if (::dataSource.isInitialized && !dataSource.isClosed) {
+            logger.info("Closing existing database connection pool before reinitializing...")
+            dataSource.close()
+        }
         logger.info("Initializing database connection pool...")
 
         val hikariConfig = HikariConfig().apply {
@@ -21,7 +25,7 @@ object DatabaseConfig {
             username = config.dbUser
             password = config.dbPass
             driverClassName = "org.postgresql.Driver"
-            maximumPoolSize = 10
+            maximumPoolSize = System.getProperty("DB_MAX_POOL_SIZE")?.toIntOrNull() ?: 10
             connectionTimeout = 5000 // 5 seconds
             idleTimeout = 600000 // 10 minutes
             maxLifetime = 1800000 // 30 minutes

@@ -1,8 +1,10 @@
+import java.time.Duration
+
 plugins {
     kotlin("jvm") version "1.9.23"
     id("io.ktor.plugin") version "2.3.11"
     kotlin("plugin.serialization") version "1.9.23"
-    id("org.owasp.dependencycheck") version "9.0.9"
+    id("org.owasp.dependencycheck") version "10.0.3"
 }
 
 group = "com.jbcoder.meeting"
@@ -65,14 +67,50 @@ dependencies {
     testImplementation("eu.rekawek.toxiproxy:toxiproxy-java:2.1.7")
 
 }
+dependencyCheck {
+    failBuildOnCVSS = 7.0f
+    suppressionFile = "dependency-check-suppression.xml"
+    failOnError = true
+    formats = listOf("HTML", "JSON", "SARIF")
+    val nvdKey = System.getenv("NVD_API_KEY")
+    if (nvdKey.isNullOrBlank()) {
+        throw GradleException("NVD_API_KEY environment variable is required for dependencyCheckAnalyze but was not found.")
+    }
+    nvd.apiKey = nvdKey
+}
 
 val npmCiLiveKitTest by tasks.registering(Exec::class) {
     workingDir = file("src/test/resources/livekit-client-test")
+    val nodeModulesDir = file("src/test/resources/livekit-client-test/node_modules")
+    
+    // Only run if node_modules is missing or package.json changed
+    inputs.file(file("src/test/resources/livekit-client-test/package.json"))
+    outputs.dir(nodeModulesDir)
+
     if (System.getProperty("os.name").toLowerCase().contains("windows")) {
-        commandLine("cmd", "/c", "npm", "ci")
+        commandLine("cmd", "/c", "npm", "install")
     } else {
-        commandLine("npm", "ci")
+        commandLine("npm", "install")
     }
+}
+
+tasks.named("processTestResources") {
+    dependsOn(npmCiLiveKitTest)
+}
+
+tasks.named<Test>("test") {
+    // Exclude integration tests from the standard 'test' task
+    exclude("**/*IntegrationTest*")
+    exclude("**/*SmokeTest*")
+    exclude("**/DependencyRecoveryTest*")
+    exclude("**/OutboxRecoveryTest*")
+    exclude("**/LoadTest*")
+    exclude("**/IdempotencyTest*")
+    exclude("**/JwtSecurityTest*")
+    exclude("**/LifecycleAndWebhookTest*")
+    exclude("**/OpenApiParityTest*")
+    exclude("**/WebhookMonotonicityTest*")
+    exclude("**/MigrationTest*")
 }
 
 tasks.withType<Test> {
@@ -87,6 +125,17 @@ tasks.register<Test>("composeIntegrationTest") {
     description = "Runs integration tests against the local Docker Compose stack"
     group = "verification"
     useJUnitPlatform()
+    
+    // Include all tests excluded from the standard 'test' task (except Dependency/Load tests which run separately)
+    include("**/*IntegrationTest*")
+    include("**/*SmokeTest*")
+    include("**/IdempotencyTest*")
+    include("**/JwtSecurityTest*")
+    include("**/LifecycleAndWebhookTest*")
+    include("**/OpenApiParityTest*")
+    include("**/WebhookMonotonicityTest*")
+    include("**/MigrationTest*")
+    include("**/OutboxRecoveryTest*")
     
     // Set a system property so tests know they are running in strict compose integration mode
     systemProperty("COMPOSE_INTEGRATION_TEST", "true")
@@ -106,6 +155,10 @@ tasks.register<Test>("dependencyRecoveryTest") {
     useJUnitPlatform()
     include("**/DependencyRecoveryTest*")
     
+    // Isolation and timeout settings
+    maxParallelForks = 1
+    timeout.set(Duration.ofMinutes(30))
+    
     testLogging {
         showStandardStreams = true
         events("passed", "skipped", "failed")
@@ -122,5 +175,15 @@ tasks.register<Test>("loadTest") {
         showStandardStreams = true
         events("passed", "skipped", "failed")
     }
+    
+    systemProperty("POSTGRES_USER", "postgres")
+    systemProperty("POSTGRES_PASSWORD", "postgres_password_placeholder")
+    systemProperty("POSTGRES_HOST", "localhost")
+    systemProperty("POSTGRES_PORT", "5432")
+    systemProperty("POSTGRES_DB", "livekit_meeting")
+    systemProperty("REDIS_HOST", "localhost")
+    systemProperty("REDIS_PORT", "6379")
+    systemProperty("REDIS_PASSWORD", "redis_password_placeholder")
+    systemProperty("COMPOSE_INTEGRATION_TEST", "true")
 }
 dependencies { testImplementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.16.1") }

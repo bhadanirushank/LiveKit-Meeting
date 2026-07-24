@@ -38,7 +38,7 @@ class JwtSecurityTest {
             System.setProperty("JWT_ISSUER", "livekit-meeting-app")
             System.setProperty("JWT_AUDIENCE", "livekit-meeting-app")
 
-            config = AppConfig.load()
+            config = run { TestSecrets.setupTestProperties(); AppConfig.load() }
             DatabaseConfig.init(config)
         }
 

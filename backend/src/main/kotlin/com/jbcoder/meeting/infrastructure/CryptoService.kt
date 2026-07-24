@@ -1,9 +1,13 @@
 package com.jbcoder.meeting.infrastructure
 
 import de.mkammerer.argon2.Argon2Factory
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import java.security.SecureRandom
 import java.util.Base64
 
+@OptIn(ExperimentalCoroutinesApi::class)
 object CryptoService {
     // We use Argon2id variant as recommended by OWASP
     private val argon2 = Argon2Factory.create(
@@ -21,23 +25,27 @@ object CryptoService {
     // Secure random for tokens and secrets
     private val secureRandom = SecureRandom()
 
+    // Bounded dedicated crypto dispatcher to prevent CPU exhaustion on concurrent requests
+    // Argon2 is blocking and CPU intensive. We limit concurrency to exactly the number of available processors.
+    private val cryptoDispatcher = Dispatchers.IO.limitedParallelism(Runtime.getRuntime().availableProcessors())
+
     /**
      * Hashes a plaintext password/secret using Argon2id.
      * Includes an optional pepper for additional server-side security.
      */
-    fun hash(plaintext: String, pepper: String = ""): String {
+    suspend fun hash(plaintext: String, pepper: String = ""): String = withContext(cryptoDispatcher) {
         val pepperedText = plaintext + pepper
         // argon2-jvm handles salt generation and embedding internally
-        return argon2.hash(ITERATIONS, MEMORY_KB, PARALLELISM, pepperedText.toCharArray())
+        argon2.hash(ITERATIONS, MEMORY_KB, PARALLELISM, pepperedText.toCharArray())
     }
 
     /**
      * Verifies a plaintext password against an Argon2id hash.
      * This operation is constant-time where supported by the underlying C implementation.
      */
-    fun verify(plaintext: String, hash: String, pepper: String = ""): Boolean {
+    suspend fun verify(plaintext: String, hash: String, pepper: String = ""): Boolean = withContext(cryptoDispatcher) {
         val pepperedText = plaintext + pepper
-        return argon2.verify(hash, pepperedText.toCharArray())
+        argon2.verify(hash, pepperedText.toCharArray())
     }
 
     /**

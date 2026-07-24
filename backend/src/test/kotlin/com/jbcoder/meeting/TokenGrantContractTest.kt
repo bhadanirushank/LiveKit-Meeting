@@ -16,7 +16,7 @@ class TokenGrantContractTest {
         @JvmStatic
         @BeforeAll
         fun setup() {
-            testConfig = AppConfig.load()
+            testConfig = run { TestSecrets.setupTestProperties(); AppConfig.load() }
         }
     }
 

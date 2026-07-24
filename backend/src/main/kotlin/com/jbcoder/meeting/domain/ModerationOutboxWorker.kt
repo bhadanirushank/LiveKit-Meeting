@@ -12,27 +12,51 @@ import kotlin.random.Random
 
 object ModerationOutboxWorker {
     private val logger = LoggerFactory.getLogger(ModerationOutboxWorker::class.java)
+    private var workerScope: CoroutineScope? = null
     private var job: Job? = null
     private val workerId = UUID.randomUUID().toString()
+    
+    // Add DB backoff tracking
+    private var dbErrorCount = 0
+    private val maxDbErrorCount = 10
 
     fun start() {
         if (job?.isActive == true) return
         logger.info("Starting ModerationOutboxWorker (workerId=$workerId)...")
-        job = CoroutineScope(Dispatchers.IO).launch {
+        
+        // Use an explicit application-owned scope with a named dispatcher
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO + CoroutineName("ModerationOutboxWorker"))
+        workerScope = scope
+        
+        job = scope.launch {
             while (isActive) {
                 try {
                     processJobs()
+                    dbErrorCount = 0 // Reset on success
+                    delay(3000)
                 } catch (e: Exception) {
-                    logger.error("Error in ModerationOutboxWorker loop", e)
+                    dbErrorCount++
+                    val backoffSeconds = ((1 shl minOf(dbErrorCount, 6)) * 2L) + Random.nextLong(0, 3)
+                    logger.error("Error in ModerationOutboxWorker loop (Attempt $dbErrorCount). Backing off for ${backoffSeconds}s", e)
+                    
+                    if (dbErrorCount >= maxDbErrorCount) {
+                        logger.error("Maximum DB error count reached. ModerationOutboxWorker will suspend longer.")
+                        delay(60000) // Suspend for a long time before trying again
+                    } else {
+                        delay(backoffSeconds * 1000)
+                    }
                 }
-                delay(3000)
             }
         }
     }
 
-    fun stop() {
-        job?.cancel()
+    suspend fun stop() {
+        logger.info("Stopping ModerationOutboxWorker...")
+        job?.cancelAndJoin()
+        workerScope?.cancel()
         job = null
+        workerScope = null
+        logger.info("ModerationOutboxWorker stopped.")
     }
 
     private suspend fun processJobs() {

@@ -20,6 +20,7 @@ object LiveKitRoomService {
     ): Result<Room> {
         return try {
             val config = AppConfig.load()
+
             val client = RoomServiceClient.createClient(config.livekitApiUrl, config.livekitKey, config.livekitSecret)
             
             // In livekit-server SDK 0.8.2, createRoom takes roomName, emptyTimeout, maxParticipants etc.

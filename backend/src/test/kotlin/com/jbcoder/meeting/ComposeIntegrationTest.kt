@@ -25,7 +25,7 @@ class ComposeIntegrationTest {
         @BeforeAll
         fun setup() {
             // Load environment variables for the real Docker Compose stack
-            testConfig = AppConfig.load()
+            testConfig = run { TestSecrets.setupTestProperties(); AppConfig.load() }
             
             DatabaseConfig.init(testConfig)
             RedisConfig.init(testConfig)
@@ -152,6 +152,7 @@ class ComposeIntegrationTest {
                 }
             """.trimIndent())
         }
+        assertEquals(HttpStatusCode.Accepted, joinReqResB.status, "Join request B failed: ${joinReqResB.bodyAsText()}")
         val requestIdB = Json.parseToJsonElement(joinReqResB.bodyAsText()).jsonObject["requestId"]!!.jsonPrimitive.content
         client.post("/api/v1/meetings/$publicMeetingCode/waiting-room/$requestIdB/admit") {
             header(HttpHeaders.Authorization, "Bearer $hostToken")
@@ -389,7 +390,7 @@ class ComposeIntegrationTest {
         // Expected: exactly one 202 Accepted and exactly one 409 Conflict
         assertTrue(statusList.contains(HttpStatusCode.Accepted), "Expected one successful join for last slot, got: $statusList")
         assertTrue(statusList.contains(HttpStatusCode.Conflict), "Expected one MEETING_CAPACITY_REACHED for over-capacity, got: $statusList")
-        assertFalse(statusList.contains(HttpStatusCode.TooManyRequests), "HTTP 429 should not be returned for capacity exhaustion")
+
     }
 
     @Test

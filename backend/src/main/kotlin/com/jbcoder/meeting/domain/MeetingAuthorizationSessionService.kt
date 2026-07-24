@@ -17,7 +17,7 @@ object MeetingAuthorizationSessionService {
         val refreshToken: String
     )
 
-    fun exchangeSecret(publicCode: String, hostSecret: String, idempotencyKey: String, installationId: String): Result<AuthorizationSessionResult> {
+    suspend fun exchangeSecret(publicCode: String, hostSecret: String, idempotencyKey: String, installationId: String): Result<AuthorizationSessionResult> {
         val meeting = MeetingRepository.findByPublicCode(publicCode)
             ?: return Result.failure(Exception("Meeting not found"))
             

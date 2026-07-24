@@ -15,7 +15,7 @@ class LiveKitTokenTest {
         @JvmStatic
         @BeforeAll
         fun setup() {
-            // Need to set env variables so AppConfig.load() doesn't fail
+            // Need to set env variables so run { TestSecrets.setupTestProperties(); AppConfig.load() } doesn't fail
             System.setProperty("POSTGRES_HOST", "localhost")
             System.setProperty("POSTGRES_PORT", "5432")
             System.setProperty("POSTGRES_DB", "livekit_meeting")

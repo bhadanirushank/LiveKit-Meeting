@@ -29,7 +29,7 @@ class IdempotencyTest {
         @JvmStatic
         @BeforeAll
         fun setup() {
-            val config = AppConfig.load()
+            val config = run { TestSecrets.setupTestProperties(); AppConfig.load() }
             DatabaseConfig.init(config)
             RedisConfig.init(config)
         }
@@ -46,7 +46,7 @@ class IdempotencyTest {
     fun `test idempotency prevents duplicate meeting creation and handles concurrent requests`() = runBlocking {
         testApplication {
             application {
-                module(AppConfig.load())
+                module(run { TestSecrets.setupTestProperties(); AppConfig.load() })
             }
             val client = createClient { }
             

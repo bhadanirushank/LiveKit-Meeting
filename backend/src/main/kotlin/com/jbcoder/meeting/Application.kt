@@ -20,14 +20,7 @@ fun main() {
     // 3. Initialize Redis (Lettuce)
     RedisConfig.init(config)
 
-    // 4. Register Shutdown hook for graceful degradation
-    Runtime.getRuntime().addShutdownHook(Thread {
-        println("Shutting down meeting backend...")
-        RedisConfig.close()
-        DatabaseConfig.close()
-    })
-
-    // 5. Start Ktor Netty Engine
+    // 4. Start Ktor Netty Engine
     embeddedServer(Netty, port = 8080, host = "0.0.0.0", module = { module(config) })
         .start(wait = true)
 }
@@ -39,13 +32,20 @@ fun Application.module(config: AppConfig) {
     configureErrorHandling()
     configureRouting(config)
 
-    launch {
-        com.jbcoder.meeting.domain.WebhookReconciliationJob.startLoop()
-    }
-    launch {
-        com.jbcoder.meeting.domain.ScheduledCleanupJob.startLoop()
-    }
-    launch {
-        com.jbcoder.meeting.domain.ModerationOutboxWorker.start()
+    // Start background workers (they manage their own scope now)
+    com.jbcoder.meeting.domain.WebhookReconciliationJob.start()
+    com.jbcoder.meeting.domain.ScheduledCleanupJob.start()
+    com.jbcoder.meeting.domain.ModerationOutboxWorker.start()
+
+    // Graceful shutdown
+    environment.monitor.subscribe(io.ktor.server.application.ApplicationStopping) {
+        log.info("Application stopping. Shutting down background workers...")
+        kotlinx.coroutines.runBlocking {
+            com.jbcoder.meeting.domain.WebhookReconciliationJob.stop()
+            com.jbcoder.meeting.domain.ScheduledCleanupJob.stop()
+            com.jbcoder.meeting.domain.ModerationOutboxWorker.stop()
+        }
+        
+        log.info("Background workers shut down. (Infrastructure connections remain open for tests/JVM shutdown)")
     }
 }

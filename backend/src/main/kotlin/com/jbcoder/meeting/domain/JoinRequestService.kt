@@ -20,7 +20,7 @@ object JoinRequestService {
         val deviceSessionId: String
     )
     
-    fun requestJoin(command: JoinCommand): Result<JoinRequestEntity> {
+    suspend fun requestJoin(command: JoinCommand): Result<JoinRequestEntity> {
         val meeting = MeetingRepository.findByPublicCode(command.publicMeetingCode)
             ?: return Result.failure(Exception("Meeting not found or invalid passcode"))
             
@@ -40,6 +40,10 @@ object JoinRequestService {
             // Lock the meeting row early for capacity concurrency race conditions
             val meetingLocked = MeetingRepository.findByIdForUpdate(meeting.id) 
                 ?: return@transaction Result.failure(Exception("Meeting not found"))
+
+            if (meetingLocked.isLocked) {
+                return@transaction Result.failure(Exception("MEETING_LOCKED"))
+            }
 
             // Capacity Check at Join Request time
             if (!meetingLocked.waitingRoomEnabled) {

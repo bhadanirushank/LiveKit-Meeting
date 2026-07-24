@@ -3,10 +3,7 @@ package com.jbcoder.meeting.domain
 import com.jbcoder.meeting.infrastructure.RedisService
 import com.jbcoder.meeting.persistence.MeetingRepository
 import com.jbcoder.meeting.persistence.MeetingsTable
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.*
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.update
@@ -20,22 +17,51 @@ import kotlin.coroutines.coroutineContext
 object ScheduledCleanupJob {
     private val logger = LoggerFactory.getLogger(ScheduledCleanupJob::class.java)
     private const val LOCK_KEY = "lock:job:cleanup"
+    private var workerScope: kotlinx.coroutines.CoroutineScope? = null
+    private var job: kotlinx.coroutines.Job? = null
+    private var dbErrorCount = 0
+    private val maxDbErrorCount = 10
 
-    suspend fun startLoop() = withContext(Dispatchers.IO) {
-        logger.info("Starting Scheduled Cleanup Job...")
-        while (coroutineContext.isActive) {
-            try {
-                // Try to acquire distributed lock for 60 seconds (Run once a minute)
-                if (RedisService.setIfAbsent(LOCK_KEY, "LOCKED", 60)) {
-                    processExpiredMeetings()
-                    processEmptyRooms()
-                    pruneWebhooks()
+    fun start() {
+        if (job?.isActive == true) return
+        logger.info("Starting ScheduledCleanupJob...")
+        
+        val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.IO + kotlinx.coroutines.CoroutineName("ScheduledCleanupJob"))
+        workerScope = scope
+        
+        job = scope.launch {
+            while (isActive) {
+                try {
+                    // Try to acquire distributed lock for 60 seconds (Run once a minute)
+                    if (RedisService.setIfAbsent(LOCK_KEY, "LOCKED", 60)) {
+                        processExpiredMeetings()
+                        processEmptyRooms()
+                        pruneWebhooks()
+                    }
+                    dbErrorCount = 0
+                    delay(10000) // Poll every 10 seconds, though the lock naturally spaces it to 60s
+                } catch (e: Exception) {
+                    dbErrorCount++
+                    val backoffSeconds = ((1 shl minOf(dbErrorCount, 6)) * 2L) + kotlin.random.Random.nextLong(0, 3)
+                    logger.error("Error in ScheduledCleanupJob loop (Attempt $dbErrorCount). Backing off for ${backoffSeconds}s", e)
+                    
+                    if (dbErrorCount >= maxDbErrorCount) {
+                        delay(60000)
+                    } else {
+                        delay(backoffSeconds * 1000)
+                    }
                 }
-            } catch (e: Exception) {
-                logger.error("Error in ScheduledCleanupJob", e)
             }
-            delay(10000) // Poll every 10 seconds, though the lock naturally spaces it to 60s
         }
+    }
+
+    suspend fun stop() {
+        logger.info("Stopping ScheduledCleanupJob...")
+        job?.cancelAndJoin()
+        workerScope?.cancel()
+        job = null
+        workerScope = null
+        logger.info("ScheduledCleanupJob stopped.")
     }
 
     private fun processExpiredMeetings() {

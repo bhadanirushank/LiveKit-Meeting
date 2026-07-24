@@ -5,3 +5,22 @@ build/
 *.iml
 local.properties
 .DS_Store
+
+# Secrets and local environment files
+*.env*
+!*.env.example
+
+# Database backups
+*.dump
+*.sql.gz
+
+# Generated reports and outputs
+reports/
+trivy-*.json
+trivy-*.txt
+gitleaks-*.json
+*_output.txt
+smoke_test_result.json
+
+# Node modules
+node_modules/

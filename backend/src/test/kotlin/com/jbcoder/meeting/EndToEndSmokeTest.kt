@@ -25,6 +25,7 @@ class EndToEndSmokeTest {
         @JvmStatic
         @BeforeAll
         fun setup() {
+            TestSecrets.setupTestProperties()
             testConfig = AppConfig.load()
             DatabaseConfig.init(testConfig)
             RedisConfig.init(testConfig)
@@ -104,7 +105,7 @@ class EndToEndSmokeTest {
         process.outputStream.writer().use { it.write(nodeConfigJson) }
         val output = process.inputStream.bufferedReader().readText()
         val exitCode = process.waitFor()
-        assertEquals(0, exitCode, "Node LiveKit test failed! Exit code: $exitCode")
+        assertEquals(0, exitCode, "Node LiveKit test failed! Exit code: $exitCode\nOutput:\n$output")
 
         val lockRes = client.post("/api/v1/meetings/$publicMeetingCode/lock") {
             header(HttpHeaders.Authorization, "Bearer $hostToken")

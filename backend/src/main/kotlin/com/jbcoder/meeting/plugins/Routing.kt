@@ -18,7 +18,7 @@ fun Application.configureRouting(config: AppConfig) {
     routing {
         route("") {
             install(RedisRateLimit) {
-                limit = 20
+                limit = System.getProperty("RATE_LIMIT")?.toIntOrNull() ?: 20
                 windowSeconds = 60
             }
             healthRoutes(config)

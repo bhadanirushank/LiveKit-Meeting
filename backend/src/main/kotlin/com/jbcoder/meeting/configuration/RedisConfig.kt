@@ -22,6 +22,14 @@ object RedisConfig {
             .build()
             
         redisClient = RedisClient.create(redisUri)
+        
+        // Use fail-fast behavior: REJECT_COMMANDS and enforce timeouts on queued/active commands
+        val clientOptions = io.lettuce.core.ClientOptions.builder()
+            .disconnectedBehavior(io.lettuce.core.ClientOptions.DisconnectedBehavior.REJECT_COMMANDS)
+            .timeoutOptions(io.lettuce.core.TimeoutOptions.builder().fixedTimeout(java.time.Duration.ofSeconds(5)).build())
+            .build()
+        redisClient.setOptions(clientOptions)
+        
         connection = redisClient.connect()
         
         logger.info("Redis connection initialized.")

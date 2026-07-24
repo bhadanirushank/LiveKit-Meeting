@@ -34,7 +34,7 @@ class OutboxRecoveryTest {
             System.setProperty("LIVEKIT_API_SECRET", TestSecrets.liveKitApiSecret)
             System.setProperty("JWT_SECRET", TestSecrets.jwtSecret)
 
-            val config = AppConfig.load()
+            val config = run { TestSecrets.setupTestProperties(); AppConfig.load() }
             DatabaseConfig.init(config)
         }
 

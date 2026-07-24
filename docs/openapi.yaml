@@ -264,7 +264,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
-          description: Conflict
+          description: Conflict (e.g., MEETING_CAPACITY_REACHED)
           content:
             application/json:
               schema:

@@ -13,7 +13,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class JoinRequestDto(
-    val passcode: String?,
+    val passcode: String? = null,
     val displayName: String,
     val deviceSessionId: String
 )
@@ -32,13 +32,15 @@ fun Route.joinRequestRoutes() {
             // Basic rate limit check based on deviceSessionId
             val ip = call.request.local.remoteHost
             if (!RateLimitService.isJoinRequestAllowed(ip, req.deviceSessionId, meetingCode)) {
-                call.respond(HttpStatusCode.TooManyRequests, mapOf("error" to "Rate limit exceeded"))
-                return@post
+                call.response.headers.append("Retry-After", "60")
+                call.response.headers.append("X-RateLimit-Limit", "10")
+                throw com.jbcoder.meeting.domain.AppError("RATE_LIMIT_EXCEEDED", "RATE_LIMIT_EXCEEDED", HttpStatusCode.TooManyRequests)
             }
             
             if (RateLimitService.isLocked(req.deviceSessionId)) {
-                call.respond(HttpStatusCode.TooManyRequests, mapOf("error" to "Temporarily locked due to too many failed attempts"))
-                return@post
+                call.response.headers.append("Retry-After", "300")
+                call.response.headers.append("X-RateLimit-Limit", "5")
+                throw com.jbcoder.meeting.domain.AppError("RATE_LIMIT_EXCEEDED", "RATE_LIMIT_EXCEEDED", HttpStatusCode.TooManyRequests)
             }
 
             val command = JoinRequestService.JoinCommand(
@@ -57,6 +59,9 @@ fun Route.joinRequestRoutes() {
                 val errorMsg = result.exceptionOrNull()?.message ?: "Unknown error"
                 if (errorMsg == "MEETING_CAPACITY_REACHED") {
                     throw com.jbcoder.meeting.domain.AppError("CAPACITY_REACHED", "MEETING_CAPACITY_REACHED", HttpStatusCode.Conflict)
+                }
+                if (errorMsg == "MEETING_LOCKED") {
+                    throw com.jbcoder.meeting.domain.AppError("MEETING_LOCKED", "MEETING_LOCKED", HttpStatusCode.Forbidden)
                 }
                 RateLimitService.recordFailedAttempt(req.deviceSessionId)
                 call.respond(HttpStatusCode.Unauthorized, mapOf("error" to "Invalid meeting code or passcode"))

@@ -5,10 +5,7 @@ import com.jbcoder.meeting.persistence.MeetingRepository
 import com.jbcoder.meeting.persistence.MeetingsTable
 import com.jbcoder.meeting.persistence.ParticipantSessionsTable
 import com.jbcoder.meeting.persistence.WebhookEventsTable
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.*
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -23,24 +20,53 @@ import kotlin.coroutines.coroutineContext
 object WebhookReconciliationJob {
     private val logger = LoggerFactory.getLogger(WebhookReconciliationJob::class.java)
     private const val LOCK_KEY = "lock:job:webhook-reconciliation"
+    private var workerScope: kotlinx.coroutines.CoroutineScope? = null
+    private var job: kotlinx.coroutines.Job? = null
+    private var dbErrorCount = 0
+    private val maxDbErrorCount = 10
 
-    suspend fun startLoop() = withContext(Dispatchers.IO) {
-        logger.info("Starting Webhook Reconciliation Job...")
-        while (coroutineContext.isActive) {
-            try {
-                // Try to acquire distributed lock for 30 seconds
-                if (RedisService.setIfAbsent(LOCK_KEY, "LOCKED", 30)) {
-                    try {
-                        processPendingEvents()
-                    } finally {
-                        RedisService.delete(LOCK_KEY)
+    fun start() {
+        if (job?.isActive == true) return
+        logger.info("Starting WebhookReconciliationJob...")
+        
+        val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.IO + kotlinx.coroutines.CoroutineName("WebhookReconciliationJob"))
+        workerScope = scope
+        
+        job = scope.launch {
+            while (isActive) {
+                try {
+                    // Try to acquire distributed lock for 30 seconds
+                    if (RedisService.setIfAbsent(LOCK_KEY, "LOCKED", 30)) {
+                        try {
+                            processPendingEvents()
+                        } finally {
+                            RedisService.delete(LOCK_KEY)
+                        }
+                    }
+                    dbErrorCount = 0
+                    delay(5000) // Poll every 5 seconds
+                } catch (e: Exception) {
+                    dbErrorCount++
+                    val backoffSeconds = ((1 shl minOf(dbErrorCount, 6)) * 2L) + kotlin.random.Random.nextLong(0, 3)
+                    logger.error("Error in WebhookReconciliationJob loop (Attempt $dbErrorCount). Backing off for ${backoffSeconds}s", e)
+                    
+                    if (dbErrorCount >= maxDbErrorCount) {
+                        delay(60000)
+                    } else {
+                        delay(backoffSeconds * 1000)
                     }
                 }
-            } catch (e: Exception) {
-                logger.error("Error in WebhookReconciliationJob", e)
             }
-            delay(5000) // Poll every 5 seconds
         }
+    }
+
+    suspend fun stop() {
+        logger.info("Stopping WebhookReconciliationJob...")
+        job?.cancelAndJoin()
+        workerScope?.cancel()
+        job = null
+        workerScope = null
+        logger.info("WebhookReconciliationJob stopped.")
     }
 
     private fun processPendingEvents() {

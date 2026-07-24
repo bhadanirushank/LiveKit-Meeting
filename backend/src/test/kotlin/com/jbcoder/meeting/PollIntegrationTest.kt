@@ -30,7 +30,7 @@ class PollIntegrationTest {
         @JvmStatic
         @BeforeAll
         fun setup() {
-            testConfig = AppConfig.load()
+            testConfig = run { TestSecrets.setupTestProperties(); AppConfig.load() }
             DatabaseConfig.init(testConfig)
             RedisConfig.init(testConfig)
             if (!DatabaseConfig.isHealthy()) fail<Unit>("PostgreSQL unreachable")

@@ -5,6 +5,7 @@
   "main": "client-test.js",
   "type": "module",
   "dependencies": {
+    "@bufbuild/protobuf": "1.10.0",
     "@livekit/rtc-node": "0.13.31"
   }
 }
