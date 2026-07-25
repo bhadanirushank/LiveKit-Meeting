@@ -1,0 +1,3 @@
+build/
+.gradle/
+src/test/resources/livekit-client-test/node_modules/
