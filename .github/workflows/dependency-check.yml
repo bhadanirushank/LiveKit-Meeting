@@ -31,13 +31,13 @@ jobs:
           distribution: 'temurin'
           cache: 'gradle'
 
-      - name: Cache NVD Database
+      - name: Cache NVD Data
         uses: actions/cache@v4
         with:
-          path: ~/.gradle/dependency-check-data
-          key: nvd-data-${{ runner.os }}-${{ github.run_id }}
+          path: backend/nvd-data
+          key: ${{ runner.os }}-nvd-data-${{ github.run_id }}
           restore-keys: |
-            nvd-data-${{ runner.os }}-
+            ${{ runner.os }}-nvd-data-
 
       - name: Run Dependency-Check
         working-directory: backend

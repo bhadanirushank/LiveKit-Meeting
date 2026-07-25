@@ -4,7 +4,7 @@ plugins {
     kotlin("jvm") version "2.4.10"
     id("io.ktor.plugin") version "2.3.11"
     kotlin("plugin.serialization") version "2.4.10"
-    id("org.owasp.dependencycheck") version "10.0.3"
+    id("org.owasp.dependencycheck") version "12.1.0"
 }
 
 group = "com.jbcoder.meeting"
@@ -78,6 +78,7 @@ dependencyCheck {
         nvd.apiKey = nvdKey
     }
     analyzers.ossIndex.enabled = false
+    data.directory = "$projectDir/nvd-data"
 }
 
 tasks.named("dependencyCheckAnalyze") {
