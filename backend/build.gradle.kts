@@ -20,7 +20,7 @@ repositories {
 
 dependencies {
     implementation(platform("org.jetbrains.kotlin:kotlin-bom:2.4.10"))
-    implementation(platform("io.netty:netty-bom:4.1.135.Final"))
+    implementation(platform("io.netty:netty-bom:4.1.136.Final"))
     implementation("io.ktor:ktor-server-core-jvm:2.3.13")
     implementation("io.ktor:ktor-server-netty-jvm:2.3.13")
     implementation("io.ktor:ktor-server-cors-jvm:2.3.13")
