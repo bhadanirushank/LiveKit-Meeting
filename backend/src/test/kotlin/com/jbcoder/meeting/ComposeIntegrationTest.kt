@@ -394,6 +394,38 @@ class ComposeIntegrationTest {
     }
 
     @Test
+    fun testLockedRoomRejectsNewJoinRequests() = testApplication {
+        application { module(testConfig) }
+
+        val createRes = client.post("/api/v1/meetings") {
+            contentType(ContentType.Application.Json)
+            setBody("""{"title":"Locked Test","passcode":"123456","waitingRoomEnabled":true,"joinBeforeHostEnabled":false,"maximumParticipants":10,"idempotencyKey":"${UUID.randomUUID()}"}""")
+        }
+        assertEquals(HttpStatusCode.Created, createRes.status)
+        val createJson = Json.parseToJsonElement(createRes.bodyAsText()).jsonObject
+        val publicMeetingCode = createJson["publicMeetingCode"]!!.jsonPrimitive.content
+        val hostSecret = createJson["hostSecret"]!!.jsonPrimitive.content
+
+        val exchangeRes = client.post("/api/v1/host-sessions/exchange") {
+            contentType(ContentType.Application.Json)
+            setBody("""{"publicMeetingCode":"$publicMeetingCode","hostSecret":"$hostSecret","deviceSessionId":"${UUID.randomUUID()}"}""")
+        }
+        val hostToken = Json.parseToJsonElement(exchangeRes.bodyAsText()).jsonObject["accessToken"]!!.jsonPrimitive.content
+
+        // Host starts and locks the meeting
+        client.post("/api/v1/meetings/$publicMeetingCode/start") { header(HttpHeaders.Authorization, "Bearer $hostToken") }
+        client.post("/api/v1/meetings/$publicMeetingCode/lock") { header(HttpHeaders.Authorization, "Bearer $hostToken") }
+
+        // Participant requests to join AFTER lock
+        val joinReqRes = client.post("/api/v1/meetings/$publicMeetingCode/join-request") {
+            contentType(ContentType.Application.Json)
+            setBody("""{"passcode":"123456","displayName":"Late Participant","deviceSessionId":"${UUID.randomUUID()}"}""")
+        }
+        assertEquals(HttpStatusCode.Forbidden, joinReqRes.status)
+        assertTrue(joinReqRes.bodyAsText().contains("MEETING_LOCKED"))
+    }
+
+    @Test
     fun testLockedRoomBypassTokenAtomicConsumption() = testApplication {
         application { module(testConfig) }
         
