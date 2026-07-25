@@ -19,6 +19,10 @@ repositories {
 }
 
 dependencies {
+    constraints {
+        implementation("com.google.guava:guava:33.2.1-jre")
+        implementation("com.squareup.okio:okio:1.17.6")
+    }
     implementation(platform("org.jetbrains.kotlin:kotlin-bom:2.4.10"))
     implementation(platform("io.netty:netty-bom:4.1.136.Final"))
     implementation(platform("com.fasterxml.jackson:jackson-bom:2.18.9"))
