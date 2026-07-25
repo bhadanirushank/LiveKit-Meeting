@@ -413,12 +413,10 @@ class ComposeIntegrationTest {
         assertEquals(HttpStatusCode.OK, exchangeRes.status)
         val hostToken = Json.parseToJsonElement(exchangeRes.bodyAsText()).jsonObject["accessToken"]!!.jsonPrimitive.content
 
-        // 2. Start and Lock the meeting
+        // 2. Start the meeting
         client.post("/api/v1/meetings/$publicMeetingCode/start") { header(HttpHeaders.Authorization, "Bearer $hostToken") }
-        val lockRes = client.post("/api/v1/meetings/$publicMeetingCode/lock") { header(HttpHeaders.Authorization, "Bearer $hostToken") }
-        assertEquals(HttpStatusCode.OK, lockRes.status)
 
-        // 3. Participant requests to join while locked
+        // 3. Participant requests to join (must be done before lock, else 403 MEETING_LOCKED)
         val deviceId = UUID.randomUUID().toString()
         val joinReqRes = client.post("/api/v1/meetings/$publicMeetingCode/join-request") {
             contentType(ContentType.Application.Json)
@@ -426,6 +424,10 @@ class ComposeIntegrationTest {
         }
         assertEquals(HttpStatusCode.Accepted, joinReqRes.status)
         val requestId = Json.parseToJsonElement(joinReqRes.bodyAsText()).jsonObject["requestId"]!!.jsonPrimitive.content
+
+        // 3b. Host locks the meeting
+        val lockRes = client.post("/api/v1/meetings/$publicMeetingCode/lock") { header(HttpHeaders.Authorization, "Bearer $hostToken") }
+        assertEquals(HttpStatusCode.OK, lockRes.status)
 
         // 4. Host admits participant while meeting is locked -> creates one-time authorization in DB
         val admitRes = client.post("/api/v1/meetings/$publicMeetingCode/waiting-room/$requestId/admit") {

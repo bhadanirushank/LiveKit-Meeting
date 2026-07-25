@@ -1,9 +1,9 @@
 import java.time.Duration
 
 plugins {
-    kotlin("jvm") version "1.9.23"
+    kotlin("jvm") version "2.4.10"
     id("io.ktor.plugin") version "2.3.11"
-    kotlin("plugin.serialization") version "1.9.23"
+    kotlin("plugin.serialization") version "2.4.10"
     id("org.owasp.dependencycheck") version "10.0.3"
 }
 
@@ -19,6 +19,7 @@ repositories {
 }
 
 dependencies {
+    implementation(platform("org.jetbrains.kotlin:kotlin-bom:2.4.10"))
     implementation("io.ktor:ktor-server-core-jvm:2.3.11")
     implementation("io.ktor:ktor-server-netty-jvm:2.3.11")
     implementation("io.ktor:ktor-server-cors-jvm:2.3.11")
