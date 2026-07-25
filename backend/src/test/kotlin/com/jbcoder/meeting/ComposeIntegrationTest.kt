@@ -15,6 +15,8 @@ import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
+import org.jetbrains.exposed.sql.selectAll
+import kotlinx.coroutines.*
 import java.util.UUID
 class ComposeIntegrationTest {
 
@@ -426,7 +428,7 @@ class ComposeIntegrationTest {
     }
 
     @Test
-    fun testLockedRoomBypassTokenAtomicConsumption() = testApplication {
+    fun testLockedRoomSequentialAtomicConsumption() = testApplication {
         application { module(testConfig) }
         
         val createRes = client.post("/api/v1/meetings") {
@@ -467,6 +469,14 @@ class ComposeIntegrationTest {
         }
         assertEquals(HttpStatusCode.OK, admitRes.status)
 
+        // Clear previous DB state for clean assertions if needed, or just count the new ones.
+        val initialConsumedCount = org.jetbrains.exposed.sql.transactions.transaction {
+            com.jbcoder.meeting.persistence.LockedMeetingAuthorizationsTable
+                .selectAll()
+                .map { it[com.jbcoder.meeting.persistence.LockedMeetingAuthorizationsTable.consumedAt] }
+                .count { it != null }
+        }
+
         // 5. Participant calls /livekit-token for the FIRST time -> succeeds and consumes authorization
         val firstTokenRes = client.post("/api/v1/join-requests/$requestId/livekit-token") {
             contentType(ContentType.Application.Json)
@@ -476,6 +486,15 @@ class ComposeIntegrationTest {
         val tokenText = Json.parseToJsonElement(firstTokenRes.bodyAsText()).jsonObject["token"]!!.jsonPrimitive.content
         assertNotNull(tokenText)
 
+        // Assert DB consumedAt was updated exactly once
+        val finalConsumedCount = org.jetbrains.exposed.sql.transactions.transaction {
+            com.jbcoder.meeting.persistence.LockedMeetingAuthorizationsTable
+                .selectAll()
+                .map { it[com.jbcoder.meeting.persistence.LockedMeetingAuthorizationsTable.consumedAt] }
+                .count { it != null }
+        }
+        assertEquals(initialConsumedCount + 1, finalConsumedCount, "Database should show exactly one consumption added")
+
         // 6. Participant calls /livekit-token for the SECOND time -> must fail because bypass authorization is consumed!
         val secondTokenRes = client.post("/api/v1/join-requests/$requestId/livekit-token") {
             contentType(ContentType.Application.Json)
@@ -483,6 +502,82 @@ class ComposeIntegrationTest {
         }
         assertEquals(HttpStatusCode.Forbidden, secondTokenRes.status, "Second token fetch must be rejected since bypass token was already consumed")
         assertTrue(secondTokenRes.bodyAsText().contains("MEETING_LOCKED"), "Rejection must state MEETING_LOCKED, was: ${secondTokenRes.bodyAsText()}")
+    }
+
+    @Test
+    fun testLockedRoomConcurrentAtomicConsumption() = testApplication {
+        application { module(testConfig) }
+        
+        val createRes = client.post("/api/v1/meetings") {
+            contentType(ContentType.Application.Json)
+            setBody("""{"title":"Concurrent Bypass Test","passcode":"123456","waitingRoomEnabled":true,"joinBeforeHostEnabled":false,"maximumParticipants":10,"idempotencyKey":"${UUID.randomUUID()}"}""")
+        }
+        assertEquals(HttpStatusCode.Created, createRes.status)
+        val createJson = Json.parseToJsonElement(createRes.bodyAsText()).jsonObject
+        val publicMeetingCode = createJson["publicMeetingCode"]!!.jsonPrimitive.content
+        val hostSecret = createJson["hostSecret"]!!.jsonPrimitive.content
+
+        val exchangeRes = client.post("/api/v1/host-sessions/exchange") {
+            contentType(ContentType.Application.Json)
+            setBody("""{"publicMeetingCode":"$publicMeetingCode","hostSecret":"$hostSecret","deviceSessionId":"${UUID.randomUUID()}"}""")
+        }
+        val hostToken = Json.parseToJsonElement(exchangeRes.bodyAsText()).jsonObject["accessToken"]!!.jsonPrimitive.content
+
+        client.post("/api/v1/meetings/$publicMeetingCode/start") { header(HttpHeaders.Authorization, "Bearer $hostToken") }
+
+        val deviceId = UUID.randomUUID().toString()
+        val joinReqRes = client.post("/api/v1/meetings/$publicMeetingCode/join-request") {
+            contentType(ContentType.Application.Json)
+            setBody("""{"passcode":"123456","displayName":"Concurrent Participant","deviceSessionId":"$deviceId"}""")
+        }
+        val requestId = Json.parseToJsonElement(joinReqRes.bodyAsText()).jsonObject["requestId"]!!.jsonPrimitive.content
+
+        client.post("/api/v1/meetings/$publicMeetingCode/lock") { header(HttpHeaders.Authorization, "Bearer $hostToken") }
+
+        client.post("/api/v1/meetings/$publicMeetingCode/waiting-room/$requestId/admit") {
+            header(HttpHeaders.Authorization, "Bearer $hostToken")
+        }
+
+        val initialConsumedCount = org.jetbrains.exposed.sql.transactions.transaction {
+            com.jbcoder.meeting.persistence.LockedMeetingAuthorizationsTable
+                .selectAll()
+                .map { it[com.jbcoder.meeting.persistence.LockedMeetingAuthorizationsTable.consumedAt] }
+                .count { it != null }
+        }
+
+        val successCount = java.util.concurrent.atomic.AtomicInteger(0)
+        val failureCount = java.util.concurrent.atomic.AtomicInteger(0)
+        val failures = java.util.concurrent.CopyOnWriteArrayList<String>()
+
+        kotlinx.coroutines.runBlocking {
+            val deferreds = (1..5).map {
+                async(kotlinx.coroutines.Dispatchers.Default) {
+                    val tokenRes = client.post("/api/v1/join-requests/$requestId/livekit-token") {
+                        contentType(ContentType.Application.Json)
+                        setBody("""{"deviceSessionId":"$deviceId"}""")
+                    }
+                    if (tokenRes.status == HttpStatusCode.OK) {
+                        successCount.incrementAndGet()
+                    } else {
+                        failureCount.incrementAndGet()
+                        failures.add(tokenRes.status.toString() + " " + tokenRes.bodyAsText())
+                    }
+                }
+            }
+            awaitAll(*deferreds.toTypedArray())
+        }
+
+        assertEquals(1, successCount.get(), "Exactly one concurrent request should succeed")
+        assertEquals(4, failureCount.get(), "Other concurrent requests should fail")
+        assertTrue(failures.all { it.contains("403") && it.contains("MEETING_LOCKED") }, "All failures must be due to the consumed one-time token returning 403 MEETING_LOCKED")
+
+        val finalConsumedCount = org.jetbrains.exposed.sql.transactions.transaction {
+            com.jbcoder.meeting.persistence.LockedMeetingAuthorizationsTable
+                .selectAll()
+                .map { it[com.jbcoder.meeting.persistence.LockedMeetingAuthorizationsTable.consumedAt] }
+                .count { it != null }
+        }
+        assertEquals(initialConsumedCount + 1, finalConsumedCount, "Database should show exactly one consumption added even with concurrent requests")
     }
 
     @Test
