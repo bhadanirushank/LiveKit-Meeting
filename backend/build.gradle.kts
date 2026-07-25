@@ -20,19 +20,19 @@ repositories {
 
 dependencies {
     implementation(platform("org.jetbrains.kotlin:kotlin-bom:2.4.10"))
-    implementation("io.ktor:ktor-server-core-jvm:2.3.11")
-    implementation("io.ktor:ktor-server-netty-jvm:2.3.11")
-    implementation("io.ktor:ktor-server-cors-jvm:2.3.11")
-    implementation("io.ktor:ktor-server-content-negotiation-jvm:2.3.11")
-    implementation("io.ktor:ktor-serialization-kotlinx-json-jvm:2.3.11")
-    implementation("io.ktor:ktor-server-status-pages-jvm:2.3.11")
-    implementation("io.ktor:ktor-server-call-logging-jvm:2.3.11")
-    implementation("io.ktor:ktor-server-call-id-jvm:2.3.11")
-    implementation("io.ktor:ktor-server-request-validation-jvm:2.3.11")
-    implementation("io.ktor:ktor-server-compression-jvm:2.3.11")
-    implementation("io.ktor:ktor-server-auth-jwt:2.3.11")
-    implementation("io.ktor:ktor-client-core-jvm:2.3.11")
-    implementation("io.ktor:ktor-client-cio-jvm:2.3.11")
+    implementation("io.ktor:ktor-server-core-jvm:2.3.13")
+    implementation("io.ktor:ktor-server-netty-jvm:2.3.13")
+    implementation("io.ktor:ktor-server-cors-jvm:2.3.13")
+    implementation("io.ktor:ktor-server-content-negotiation-jvm:2.3.13")
+    implementation("io.ktor:ktor-serialization-kotlinx-json-jvm:2.3.13")
+    implementation("io.ktor:ktor-server-status-pages-jvm:2.3.13")
+    implementation("io.ktor:ktor-server-call-logging-jvm:2.3.13")
+    implementation("io.ktor:ktor-server-call-id-jvm:2.3.13")
+    implementation("io.ktor:ktor-server-request-validation:2.3.13")
+    implementation("io.ktor:ktor-server-compression-jvm:2.3.13")
+    implementation("io.ktor:ktor-server-auth-jwt:2.3.13")
+    implementation("io.ktor:ktor-client-core-jvm:2.3.13")
+    implementation("io.ktor:ktor-client-cio-jvm:2.3.13")
 
     // Database & Migrations
     implementation("org.postgresql:postgresql:42.7.3")
@@ -44,7 +44,7 @@ dependencies {
     implementation("org.flywaydb:flyway-database-postgresql:10.10.0")
 
     // Redis (Lettuce)
-    implementation("io.lettuce:lettuce-core:6.3.2.RELEASE")
+    implementation("io.lettuce:lettuce-core:6.8.2.RELEASE")
 
     // LiveKit & Crypto
     implementation("io.livekit:livekit-server:0.8.2")
@@ -61,7 +61,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
 
     // Testing
-    testImplementation("io.ktor:ktor-server-tests-jvm:2.3.11")
+    testImplementation("io.ktor:ktor-server-tests-jvm:2.3.13")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit:1.9.23")
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
     testImplementation("io.mockk:mockk:1.13.10")
