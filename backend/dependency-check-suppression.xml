@@ -1,4 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
-    <!-- Add suppressions here -->
+    <suppress>
+        <notes><![CDATA[
+        Classification: NOT APPLICABLE / FALSE-POSITIVE CPE MATCH
+        CVE-2026-0994 false-positive. The vulnerability exists in the Python module google.protobuf.json_format.ParseDict().
+        The Java JAR artifacts do not contain this Python implementation. The broad google:protobuf CPE identifier 
+        caused the scanner to flag the Java artifacts incorrectly.
+        Owner: Backend security maintainer
+        Review date: 2026-10-01
+        Trigger for removing suppression: Remove if the advisory expands to Java, Java artifacts include the code, or CPE is corrected.
+        ]]></notes>
+        <packageUrl regex="true">^pkg:maven/com\.google\.protobuf/protobuf\-java(\-util)?@3\.25\.5$</packageUrl>
+        <cve>CVE-2026-0994</cve>
+    </suppress>
 </suppressions>
