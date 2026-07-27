@@ -8,7 +8,13 @@ import io.ktor.server.request.receive
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.post
+import io.ktor.server.routing.get
 import io.ktor.server.routing.route
+import io.ktor.server.auth.authenticate
+import io.ktor.server.auth.principal
+import com.jbcoder.meeting.plugins.MobileSessionPrincipal
+import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.transactions.transaction
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -20,36 +26,41 @@ data class JoinRequestDto(
 
 fun Route.joinRequestRoutes() {
     route("/api/v1/meetings/{meetingCode}/join-request") {
-        post {
-            val meetingCode = call.parameters["meetingCode"] ?: return@post call.respond(HttpStatusCode.BadRequest)
-            val req = try {
-                call.receive<JoinRequestDto>()
-            } catch (e: Exception) {
-                call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Invalid request body"))
-                return@post
-            }
-            
-            // Basic rate limit check based on deviceSessionId
-            val ip = call.request.local.remoteHost
-            if (!RateLimitService.isJoinRequestAllowed(ip, req.deviceSessionId, meetingCode)) {
-                call.response.headers.append("Retry-After", "60")
-                call.response.headers.append("X-RateLimit-Limit", "10")
-                throw com.jbcoder.meeting.domain.AppError("RATE_LIMIT_EXCEEDED", "RATE_LIMIT_EXCEEDED", HttpStatusCode.TooManyRequests)
-            }
-            
-            if (RateLimitService.isLocked(req.deviceSessionId)) {
-                call.response.headers.append("Retry-After", "300")
-                call.response.headers.append("X-RateLimit-Limit", "5")
-                throw com.jbcoder.meeting.domain.AppError("RATE_LIMIT_EXCEEDED", "RATE_LIMIT_EXCEEDED", HttpStatusCode.TooManyRequests)
-            }
-
-            val command = JoinRequestService.JoinCommand(
-                publicMeetingCode = meetingCode,
-                passcode = req.passcode,
-                displayName = req.displayName,
-                deviceSessionId = req.deviceSessionId
-            )
-            
+        authenticate("mobile-bearer", optional = true) {
+            post {
+                val meetingCode = call.parameters["meetingCode"] ?: return@post call.respond(HttpStatusCode.BadRequest)
+                val req = try {
+                    call.receive<JoinRequestDto>()
+                } catch (e: Exception) {
+                    call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Invalid request body"))
+                    return@post
+                }
+                
+                // Basic rate limit check based on deviceSessionId
+                val ip = call.request.local.remoteHost
+                if (!RateLimitService.isJoinRequestAllowed(ip, req.deviceSessionId, meetingCode)) {
+                    call.response.headers.append("Retry-After", "60")
+                    call.response.headers.append("X-RateLimit-Limit", "10")
+                    throw com.jbcoder.meeting.domain.AppError("RATE_LIMIT_EXCEEDED", "RATE_LIMIT_EXCEEDED", HttpStatusCode.TooManyRequests)
+                }
+                
+                if (RateLimitService.isLocked(req.deviceSessionId)) {
+                    call.response.headers.append("Retry-After", "300")
+                    call.response.headers.append("X-RateLimit-Limit", "5")
+                    throw com.jbcoder.meeting.domain.AppError("RATE_LIMIT_EXCEEDED", "RATE_LIMIT_EXCEEDED", HttpStatusCode.TooManyRequests)
+                }
+    
+                val mobilePrincipal = call.principal<MobileSessionPrincipal>()
+                val mobileSessionId = mobilePrincipal?.sessionId?.let { java.util.UUID.fromString(it) }
+    
+                val command = JoinRequestService.JoinCommand(
+                    publicMeetingCode = meetingCode,
+                    passcode = req.passcode,
+                    displayName = req.displayName,
+                    deviceSessionId = req.deviceSessionId,
+                    mobileSessionId = mobileSessionId
+                )
+                
             val result = JoinRequestService.requestJoin(command)
             
             if (result.isSuccess) {
@@ -67,9 +78,37 @@ fun Route.joinRequestRoutes() {
                 call.respond(HttpStatusCode.Unauthorized, mapOf("error" to "Invalid meeting code or passcode"))
             }
         }
+        }
     }
     
     route("/api/v1/join-requests/{requestId}") {
+        authenticate("mobile-bearer") {
+            get {
+                val requestIdStr = call.parameters["requestId"] ?: return@get call.respond(HttpStatusCode.BadRequest)
+                val mobilePrincipal = call.principal<MobileSessionPrincipal>() ?: return@get call.respond(HttpStatusCode.Unauthorized)
+                
+                val requestId = try {
+                    java.util.UUID.fromString(requestIdStr)
+                } catch (e: Exception) {
+                    return@get call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Invalid requestId format"))
+                }
+                
+                val requestEntity = transaction {
+                    com.jbcoder.meeting.persistence.JoinRequestsTable.selectAll().where { 
+                        com.jbcoder.meeting.persistence.JoinRequestsTable.id eq requestId 
+                    }.singleOrNull()
+                } ?: return@get call.respond(HttpStatusCode.NotFound)
+                
+                val requestDeviceSessionId = requestEntity[com.jbcoder.meeting.persistence.JoinRequestsTable.deviceSessionId]
+                if (requestDeviceSessionId?.toString() != mobilePrincipal.sessionId) {
+                    return@get call.respond(HttpStatusCode.Forbidden)
+                }
+                
+                val status = requestEntity[com.jbcoder.meeting.persistence.JoinRequestsTable.status]
+                call.respond(HttpStatusCode.OK, mapOf<String, String>("status" to status))
+            }
+        }
+
         post("/livekit-token") {
             val requestIdStr = call.parameters["requestId"] ?: return@post call.respond(HttpStatusCode.BadRequest)
             // Just parse simple deviceSessionId from body for now

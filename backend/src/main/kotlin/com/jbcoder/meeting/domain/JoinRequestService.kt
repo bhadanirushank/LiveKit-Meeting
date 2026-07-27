@@ -17,7 +17,8 @@ object JoinRequestService {
         val publicMeetingCode: String,
         val passcode: String?,
         val displayName: String,
-        val deviceSessionId: String
+        val deviceSessionId: String,
+        val mobileSessionId: UUID? = null
     )
     
     suspend fun requestJoin(command: JoinCommand): Result<JoinRequestEntity> {
@@ -95,6 +96,9 @@ object JoinRequestService {
                 it[status] = JoinRequestStatus.PENDING.name
                 it[requestedAt] = Instant.now()
                 it[this.expiresAt] = expiresAt
+                if (command.mobileSessionId != null) {
+                    it[deviceSessionId] = command.mobileSessionId
+                }
             }
             
             val requestEntity = JoinRequestsTable.selectAll().where { JoinRequestsTable.id eq joinRequestId }.single()
@@ -108,7 +112,8 @@ object JoinRequestService {
                 reviewedAt = requestEntity[JoinRequestsTable.reviewedAt],
                 reviewedByParticipantId = requestEntity[JoinRequestsTable.reviewedByParticipantId],
                 rejectionReason = requestEntity[JoinRequestsTable.rejectionReason],
-                expiresAt = requestEntity[JoinRequestsTable.expiresAt]
+                expiresAt = requestEntity[JoinRequestsTable.expiresAt],
+                deviceSessionId = requestEntity[JoinRequestsTable.deviceSessionId]
             ))
         }
     }

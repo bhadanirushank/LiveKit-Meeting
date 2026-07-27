@@ -92,6 +92,7 @@ object JoinRequestsTable : Table("join_requests") {
     val reviewedByParticipantId = uuid("reviewed_by_participant_id").nullable()
     val rejectionReason = varchar("rejection_reason", 255).nullable()
     val expiresAt = timestamp("expires_at")
+    val deviceSessionId = reference("device_session_id", DeviceSessionsTable.id).nullable()
 
     override val primaryKey = PrimaryKey(id)
 }

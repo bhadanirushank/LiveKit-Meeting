@@ -85,7 +85,8 @@ data class JoinRequestEntity(
     val reviewedAt: Instant? = null,
     val reviewedByParticipantId: UUID? = null,
     val rejectionReason: String? = null,
-    val expiresAt: Instant
+    val expiresAt: Instant,
+    val deviceSessionId: UUID? = null
 )
 
 data class AuditEventEntity(
