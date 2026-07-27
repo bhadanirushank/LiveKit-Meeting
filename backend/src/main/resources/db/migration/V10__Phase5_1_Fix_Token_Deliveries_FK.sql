@@ -1,0 +1,2 @@
+ALTER TABLE livekit_token_deliveries DROP CONSTRAINT livekit_token_deliveries_join_request_id_fkey;
+ALTER TABLE livekit_token_deliveries ADD CONSTRAINT livekit_token_deliveries_join_request_id_fkey FOREIGN KEY (join_request_id) REFERENCES join_requests(id) ON DELETE CASCADE;

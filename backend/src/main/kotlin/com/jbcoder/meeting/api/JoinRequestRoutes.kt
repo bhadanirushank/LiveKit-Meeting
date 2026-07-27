@@ -109,23 +109,65 @@ fun Route.joinRequestRoutes() {
             }
         }
 
-        post("/livekit-token") {
-            val requestIdStr = call.parameters["requestId"] ?: return@post call.respond(HttpStatusCode.BadRequest)
-            // Just parse simple deviceSessionId from body for now
-            @Serializable data class TokenReq(val deviceSessionId: String)
-            val req = call.receive<TokenReq>()
-            
-            val requestId = java.util.UUID.fromString(requestIdStr)
-            val result = com.jbcoder.meeting.domain.TokenIssuanceService.issueToken(requestId, req.deviceSessionId)
-            
-            if (result.isSuccess) {
-                call.respond(HttpStatusCode.OK, mapOf("token" to result.getOrThrow()))
-            } else {
-                val errorMsg = result.exceptionOrNull()?.message ?: "Unknown error"
-                if (errorMsg == "WAITING_ROOM") {
-                    call.respond(HttpStatusCode.Accepted, mapOf("status" to "WAITING_ROOM"))
+        authenticate("mobile-bearer") {
+            post("/livekit-token") {
+                val requestIdStr = call.parameters["requestId"] ?: return@post call.respond(HttpStatusCode.BadRequest)
+                val mobilePrincipal = call.principal<MobileSessionPrincipal>() ?: return@post call.respond(HttpStatusCode.Unauthorized)
+                
+                val requestId = try {
+                    java.util.UUID.fromString(requestIdStr)
+                } catch (e: Exception) {
+                    return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Invalid requestId format"))
+                }
+                
+                // Verify ownership
+                val requestEntity = transaction {
+                    com.jbcoder.meeting.persistence.JoinRequestsTable.selectAll().where { 
+                        com.jbcoder.meeting.persistence.JoinRequestsTable.id eq requestId 
+                    }.singleOrNull()
+                } ?: return@post call.respond(HttpStatusCode.NotFound)
+                
+                val requestDeviceSessionId = requestEntity[com.jbcoder.meeting.persistence.JoinRequestsTable.deviceSessionId]
+                if (requestDeviceSessionId?.toString() != mobilePrincipal.sessionId) {
+                    return@post call.respond(HttpStatusCode.Forbidden)
+                }
+                
+                val result = com.jbcoder.meeting.domain.TokenIssuanceService.issueToken(requestId, mobilePrincipal.sessionId)
+                
+                if (result.isSuccess) {
+                    val rawToken = result.getOrThrow()
+                    // Encrypt with Bearer token
+                    val authHeader = call.request.headers["Authorization"]?.removePrefix("Bearer ") ?: ""
+                    val keyBytes = java.security.MessageDigest.getInstance("SHA-256").digest(authHeader.toByteArray(Charsets.UTF_8))
+                    
+                    val (encryptedPayload, iv) = com.jbcoder.meeting.infrastructure.CryptoService.encryptAesGcm(rawToken, keyBytes)
+                    val idempotencyHash = com.jbcoder.meeting.infrastructure.CryptoService.sha256(requestId.toString() + encryptedPayload)
+                    
+                    transaction {
+                        com.jbcoder.meeting.persistence.LiveKitTokenDeliveriesTable.insert {
+                            it[id] = java.util.UUID.randomUUID()
+                            it[joinRequestId] = requestId
+                            it[deviceSessionId] = java.util.UUID.fromString(mobilePrincipal.sessionId)
+                            it[idempotencyKeyHash] = idempotencyHash
+                            it[encryptedTokenPayload] = encryptedPayload
+                            it[encryptionIv] = iv
+                            it[tokenExpiresAt] = java.time.Instant.now().plusSeconds(7200)
+                            it[replayExpiresAt] = java.time.Instant.now().plusSeconds(60)
+                            it[createdAt] = java.time.Instant.now()
+                        }
+                    }
+                    
+                    call.respond(HttpStatusCode.OK, mapOf(
+                        "encryptedToken" to encryptedPayload,
+                        "iv" to iv
+                    ))
                 } else {
-                    call.respond(HttpStatusCode.Forbidden, mapOf("error" to errorMsg))
+                    val errorMsg = result.exceptionOrNull()?.message ?: "Unknown error"
+                    if (errorMsg == "WAITING_ROOM") {
+                        call.respond(HttpStatusCode.Accepted, mapOf("status" to "WAITING_ROOM"))
+                    } else {
+                        call.respond(HttpStatusCode.Forbidden, mapOf("error" to errorMsg))
+                    }
                 }
             }
         }

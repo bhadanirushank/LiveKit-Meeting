@@ -86,4 +86,41 @@ object CryptoService {
     fun constantTimeEquals(a: String, b: String): Boolean {
         return java.security.MessageDigest.isEqual(a.toByteArray(Charsets.UTF_8), b.toByteArray(Charsets.UTF_8))
     }
+
+    /**
+     * Encrypts a string using AES-GCM.
+     * @param plaintext The text to encrypt
+     * @param key A 256-bit (32 bytes) key derived from the bearer token or system key
+     * @return A Pair containing (Base64 Encoded Ciphertext, Base64 Encoded IV)
+     */
+    fun encryptAesGcm(plaintext: String, keyBytes: ByteArray): Pair<String, String> {
+        val cipher = javax.crypto.Cipher.getInstance("AES/GCM/NoPadding")
+        val iv = ByteArray(12)
+        secureRandom.nextBytes(iv)
+        val gcmParameterSpec = javax.crypto.spec.GCMParameterSpec(128, iv)
+        val secretKeySpec = javax.crypto.spec.SecretKeySpec(keyBytes, "AES")
+        
+        cipher.init(javax.crypto.Cipher.ENCRYPT_MODE, secretKeySpec, gcmParameterSpec)
+        val cipherText = cipher.doFinal(plaintext.toByteArray(Charsets.UTF_8))
+        
+        return Pair(
+            Base64.getEncoder().encodeToString(cipherText),
+            Base64.getEncoder().encodeToString(iv)
+        )
+    }
+
+    /**
+     * Decrypts an AES-GCM encrypted string.
+     */
+    fun decryptAesGcm(base64Ciphertext: String, base64Iv: String, keyBytes: ByteArray): String {
+        val cipher = javax.crypto.Cipher.getInstance("AES/GCM/NoPadding")
+        val iv = Base64.getDecoder().decode(base64Iv)
+        val gcmParameterSpec = javax.crypto.spec.GCMParameterSpec(128, iv)
+        val secretKeySpec = javax.crypto.spec.SecretKeySpec(keyBytes, "AES")
+        
+        cipher.init(javax.crypto.Cipher.DECRYPT_MODE, secretKeySpec, gcmParameterSpec)
+        val plainTextBytes = cipher.doFinal(Base64.getDecoder().decode(base64Ciphertext))
+        
+        return String(plainTextBytes, Charsets.UTF_8)
+    }
 }

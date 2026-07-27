@@ -216,7 +216,7 @@ object DeviceSessionsTable : Table("device_sessions") {
 
 object LiveKitTokenDeliveriesTable : Table("livekit_token_deliveries") {
     val id = uuid("id")
-    val joinRequestId = reference("join_request_id", ParticipantSessionsTable.id).uniqueIndex()
+    val joinRequestId = reference("join_request_id", JoinRequestsTable.id).uniqueIndex()
     val deviceSessionId = reference("device_session_id", DeviceSessionsTable.id)
     val idempotencyKeyHash = varchar("idempotency_key_hash", 255)
     val encryptedTokenPayload = text("encrypted_token_payload")
