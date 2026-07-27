@@ -63,7 +63,7 @@ The `composeIntegrationTest` test suite successfully tested the complete lifecyc
 - Test identifiers use `UUID.randomUUID()` for namespaces. Cryptographic secrets use `SecureRandom` (32 bytes, Base64 URL-safe encoding without padding).
 
 **Status**: PASSED.
-**Output Metrics**: 31 tests completed, 0 failed, 0 skipped. `BUILD SUCCESSFUL in 1m 35s`.
+**Output Metrics**: 33 tests completed, 0 failed, 0 skipped. `BUILD SUCCESSFUL in 1m 35s`.
 **Report Path**: `D:\LiveKit-Meeting\backend\build\reports\tests\composeIntegrationTest\index.html`
 
 ---
@@ -180,26 +180,30 @@ All code has been scanned to ensure zero leaks and proper cryptography.
   - **Smoke Test:** End-to-end `curl` tests against a dedicated instance of the backend bound to the restored isolated database.
 
 ## 7. Capacity & Load Metrics (Updated)
-Load measurements extracted post Argon2id optimization.
+Load measurements extracted post Argon2id optimization. Use the final controlled Batch 4 performance medians:
 
-| Profile | RPS | Latency (P50) | Latency (P95) | Latency (P99) | Latency (Max) | Success | 403 | 409 | 429 | Other |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| **A1 - Locked Room** | 8.08 | 586ms | 616ms | 616ms | 616ms | 0 | 5 | 0 | 0 | 0 |
-| **A2 - Rate Limits** | 7.05 | 233ms | 6940ms | 7051ms | 7051ms | 10 | 0 | 0 | 40 | 0 |
-| **B1 - Normal Load** | 26.60 | 389ms | 749ms | 749ms | 749ms | 20 | 0 | 0 | 0 | 0 |
-| **B2 - Crypto Load** | 4.99 | 1818ms | 2001ms | 2001ms | 2001ms | 10 | 0 | 0 | 0 | 0 |
-| **C - Capacity Race** | 40.54 | 62ms | 72ms | 72ms | 72ms | 1 | 0 | 2 | 0 | 0 |
+- **Profile A1 — Locked Meeting**: 5 requests, 5 HTTP 403. Median RPS: 12.14, Median P99: 410 ms.
+- **Profile A2 — Rate Limiting**: 50 requests, 10 Success, 40 HTTP 429. Median RPS: 20.87, Median P99: 2368 ms.
+- **Profile B1 — Normal Load**: 20 requests, 20 Success. Median RPS: 54.35, Median P99: 365 ms.
+- **Profile B2 — Passcode Verification**: 10 requests, 10 Success. Median RPS: 10.88, Median P99: 917 ms.
+- **Profile C — Capacity Reservation Race**: 3 requests, 1 HTTP 202, 2 HTTP 409. Median RPS: 69.77, Median P99: 42 ms.
+
+Classification:
+NO MATERIAL REGRESSION
 
 > [!TIP]
 > Argon2id parameters were tuned dynamically for tests to reduce crypto load down to ~1.8 seconds.
-> Capacity Race explicitly proves exactly ONE success and TWO conflicts.
+> Capacity Race explicitly proves exactly ONE success and TWO conflicts. Do not confuse Profile C with the separate five-request concurrent LiveKit-token consumption test.
 
 ## 8. OWASP Dependency Check (Authenticated CI Scan)
-**Status:** PASSED (Batch 4 VERIFIED)
-- **Run ID:** 30241091383 (Dependency-Check 12.1.0)
-- **Active Vulnerabilities:** 1 CRITICAL, 0 HIGH, 4 MEDIUM
-- **CVE-2026-54291:** Absent (PostgreSQL JDBC 42.7.12 upgrade verified)
-- **CVE-2026-0994:** Suppressed properly with exactly 2 occurrences for `protobuf-java` and `protobuf-java-util` 3.25.5.
+Dependency-Check successfully executed and generated valid authenticated reports. The GitHub workflow exited with code 1 because CVE-2026-53914 remains above failBuildOnCVSS 7.0. This Kotlin build-tool finding is under approved temporary development risk acceptance and is not claimed as remediated.
+
+- Active Critical CVEs: 1
+- Active High CVEs: 0
+- Active Medium CVEs: 4
+- Narrowly suppressed occurrences: 2
+- Kotlin risk-acceptance expiry: 2026-09-30
+- Production deployment: BLOCKED
 
 ### Remaining Active CVEs Review
 1. **CVE-2026-53914 (Critical)**: Kotlin compiler/build-tools. 
