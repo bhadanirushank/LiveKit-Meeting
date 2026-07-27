@@ -90,21 +90,30 @@ fun Route.joinRequestRoutes() {
                 val requestId = try {
                     java.util.UUID.fromString(requestIdStr)
                 } catch (e: Exception) {
-                    return@get call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Invalid requestId format"))
+                    return@get throw com.jbcoder.meeting.domain.AppError("INVALID_REQUEST", "Invalid requestId format", HttpStatusCode.BadRequest)
                 }
                 
                 val requestEntity = transaction {
                     com.jbcoder.meeting.persistence.JoinRequestsTable.selectAll().where { 
                         com.jbcoder.meeting.persistence.JoinRequestsTable.id eq requestId 
                     }.singleOrNull()
-                } ?: return@get call.respond(HttpStatusCode.NotFound)
+                } ?: throw com.jbcoder.meeting.domain.AppError("JOIN_REQUEST_NOT_FOUND", "Join request not found", HttpStatusCode.NotFound)
                 
                 val requestDeviceSessionId = requestEntity[com.jbcoder.meeting.persistence.JoinRequestsTable.deviceSessionId]
                 if (requestDeviceSessionId?.toString() != mobilePrincipal.sessionId) {
-                    return@get call.respond(HttpStatusCode.Forbidden)
+                    throw com.jbcoder.meeting.domain.AppError("JOIN_REQUEST_NOT_OWNED", "Device does not own this request", HttpStatusCode.Forbidden)
                 }
                 
                 val status = requestEntity[com.jbcoder.meeting.persistence.JoinRequestsTable.status]
+                
+                val expiresAt = requestEntity[com.jbcoder.meeting.persistence.JoinRequestsTable.expiresAt]
+                if (status == "EXPIRED" || expiresAt.isBefore(java.time.Instant.now())) {
+                    throw com.jbcoder.meeting.domain.AppError("JOIN_REQUEST_EXPIRED", "Join request expired", HttpStatusCode.Gone)
+                }
+                if (status == "REJECTED") {
+                    throw com.jbcoder.meeting.domain.AppError("PARTICIPANT_REJECTED", "Participant rejected", HttpStatusCode.Forbidden)
+                }
+                
                 call.respond(HttpStatusCode.OK, mapOf<String, String>("status" to status))
             }
         }
@@ -117,7 +126,7 @@ fun Route.joinRequestRoutes() {
                 val requestId = try {
                     java.util.UUID.fromString(requestIdStr)
                 } catch (e: Exception) {
-                    return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Invalid requestId format"))
+                    return@post throw com.jbcoder.meeting.domain.AppError("INVALID_REQUEST", "Invalid requestId format", HttpStatusCode.BadRequest)
                 }
                 
                 // Verify ownership
@@ -125,11 +134,11 @@ fun Route.joinRequestRoutes() {
                     com.jbcoder.meeting.persistence.JoinRequestsTable.selectAll().where { 
                         com.jbcoder.meeting.persistence.JoinRequestsTable.id eq requestId 
                     }.singleOrNull()
-                } ?: return@post call.respond(HttpStatusCode.NotFound)
+                } ?: throw com.jbcoder.meeting.domain.AppError("JOIN_REQUEST_NOT_FOUND", "Join request not found", HttpStatusCode.NotFound)
                 
                 val requestDeviceSessionId = requestEntity[com.jbcoder.meeting.persistence.JoinRequestsTable.deviceSessionId]
                 if (requestDeviceSessionId?.toString() != mobilePrincipal.sessionId) {
-                    return@post call.respond(HttpStatusCode.Forbidden)
+                    throw com.jbcoder.meeting.domain.AppError("JOIN_REQUEST_NOT_OWNED", "Device does not own this request", HttpStatusCode.Forbidden)
                 }
                 
                 // 1. Get and validate Idempotency-Key
@@ -156,7 +165,7 @@ fun Route.joinRequestRoutes() {
                     if (errorMsg == "WAITING_ROOM") {
                         call.respond(HttpStatusCode.Accepted, mapOf("status" to "WAITING_ROOM"))
                     } else {
-                        call.respond(HttpStatusCode.Forbidden, mapOf("error" to errorMsg))
+                        throw com.jbcoder.meeting.domain.AppError("FORBIDDEN", errorMsg, HttpStatusCode.Forbidden)
                     }
                 }
             }

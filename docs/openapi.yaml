@@ -382,6 +382,18 @@ paths:
                 $ref: '#/components/schemas/TokenResponse'
         '202':
           description: Still waiting in the waiting room
+        '400':
+          description: Bad Request (Invalid Idempotency Key)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict (Concurrent Request)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '403':
           description: Forbidden (Rejected or Removed)
           content:
@@ -1090,6 +1102,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/MeetingStatusResponse'
+        '410':
+          description: Gone (Request Expired)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: Unauthorized
           content:

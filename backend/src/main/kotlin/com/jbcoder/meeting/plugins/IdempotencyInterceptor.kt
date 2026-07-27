@@ -55,7 +55,7 @@ val IdempotencyPlugin = createRouteScopedPlugin(
                 val bodyFp = existing[com.jbcoder.meeting.persistence.IdempotencyKeysTable.bodyFingerprint]
 
                 if (bodyFp != fingerprint) {
-                    call.respond(io.ktor.http.HttpStatusCode.Conflict, mapOf("error" to "IDEMPOTENCY_KEY_REUSED"))
+                    throw com.jbcoder.meeting.domain.AppError("INVALID_IDEMPOTENCY_KEY", "Idempotency key reused", io.ktor.http.HttpStatusCode.Conflict)
                     return@onCall // Stop processing
                 }
 
@@ -68,7 +68,7 @@ val IdempotencyPlugin = createRouteScopedPlugin(
                     return@onCall // Stop processing
                 }
             } else if (status == "PROCESSING") {
-                call.respond(io.ktor.http.HttpStatusCode.Conflict, mapOf("error" to "CONCURRENT_REQUEST_PROCESSING"))
+                throw com.jbcoder.meeting.domain.AppError("CONCURRENT_REQUEST_PROCESSING", "Concurrent request processing", io.ktor.http.HttpStatusCode.Conflict)
                 return@onCall // Stop processing
             }
         } else {
@@ -83,7 +83,7 @@ val IdempotencyPlugin = createRouteScopedPlugin(
             )
 
             if (!created) {
-                call.respond(io.ktor.http.HttpStatusCode.Conflict, mapOf("error" to "CONCURRENT_REQUEST_PROCESSING"))
+                throw com.jbcoder.meeting.domain.AppError("CONCURRENT_REQUEST_PROCESSING", "Concurrent request processing", io.ktor.http.HttpStatusCode.Conflict)
                 return@onCall
             }
         }

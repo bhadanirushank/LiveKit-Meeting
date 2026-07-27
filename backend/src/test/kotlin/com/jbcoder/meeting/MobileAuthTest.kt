@@ -62,7 +62,7 @@ class MobileAuthTest {
 
         val bodyText = response.bodyAsText()
         println("Bootstrap response status: ${response.status}")
-        println("Bootstrap response body: $bodyText")
+        println("Bootstrap response body: ${com.jbcoder.meeting.security.TestOutputRedactor.redact(bodyText)}")
 
         assertEquals(HttpStatusCode.OK, response.status)
 

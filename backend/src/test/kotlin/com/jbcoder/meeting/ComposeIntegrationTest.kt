@@ -73,7 +73,7 @@ class ComposeIntegrationTest {
         }
         
         if (createRes.status != HttpStatusCode.Created) {
-            println("CREATE MEETING FAILED: ${createRes.bodyAsText()}")
+            println("CREATE MEETING FAILED: ${com.jbcoder.meeting.security.TestOutputRedactor.redact(createRes.bodyAsText())}")
         }
         
         assertEquals(HttpStatusCode.Created, createRes.status)
@@ -125,7 +125,7 @@ class ComposeIntegrationTest {
             """.trimIndent())
         }
         if (earlyTokenRes.status != HttpStatusCode.Accepted) {
-            println("EARLY TOKEN FAILED: ${earlyTokenRes.bodyAsText()}")
+            println("EARLY TOKEN FAILED: ${com.jbcoder.meeting.security.TestOutputRedactor.redact(earlyTokenRes.bodyAsText())}")
         }
         assertEquals(HttpStatusCode.Accepted, earlyTokenRes.status)
         assertTrue(earlyTokenRes.bodyAsText().contains("WAITING_ROOM"))
@@ -207,7 +207,7 @@ class ComposeIntegrationTest {
         val output = process.inputStream.bufferedReader().readText()
         val exitCode = process.waitFor()
         
-        println("NODE TEST OUTPUT:\n${output.replace(testConfig.livekitSecret, "***REDACTED***").replace(token, "***REDACTED***").replace(tokenB, "***REDACTED***")}")
+        println("NODE TEST OUTPUT:\n${com.jbcoder.meeting.security.TestOutputRedactor.redact(output)}")
         assertEquals(0, exitCode, "Node LiveKit test failed! Exit code: $exitCode")
         
         // 9. Verify identities via LiveKit Room Service & Delete Room
@@ -245,7 +245,7 @@ class ComposeIntegrationTest {
             """.trimIndent())
         }
         if (createRes.status != HttpStatusCode.Created) {
-            println("CAPACITY TEST CREATE FAILED: ${createRes.bodyAsText()}")
+            println("CAPACITY TEST CREATE FAILED: ${com.jbcoder.meeting.security.TestOutputRedactor.redact(createRes.bodyAsText())}")
         }
         assertEquals(HttpStatusCode.Created, createRes.status)
         val createBody = createRes.bodyAsText()
@@ -329,8 +329,8 @@ class ComposeIntegrationTest {
         thread2.join(10000)
         
         val statusList = results.values.toList()
-        println("CAPACITY TEST - Status results: $statusList")
-        println("CAPACITY TEST - Bodies: ${bodies.values.map { it.take(200) }}")
+        println("CAPACITY TEST - Status results: ${com.jbcoder.meeting.security.TestOutputRedactor.redact(statusList.toString())}")
+        println("CAPACITY TEST - Bodies: ${com.jbcoder.meeting.security.TestOutputRedactor.redact(bodies.values.map { it.take(200) }.toString())}")
         
         // Expected: exactly one 200 OK and exactly one 409 Conflict
         assertTrue(statusList.contains(HttpStatusCode.OK), "Expected one successful admission for last slot, got: $statusList")

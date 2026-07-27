@@ -47,7 +47,7 @@ val RedisRateLimit = createRouteScopedPlugin(name = "RedisRateLimit", createConf
 
             if (rateLimitResult.count > limit) {
                 call.response.header("Retry-After", rateLimitResult.ttl.toString())
-                call.respond(HttpStatusCode.TooManyRequests, mapOf("error" to "Rate limit exceeded"))
+                throw com.jbcoder.meeting.domain.AppError("RATE_LIMIT_EXCEEDED", "Rate limit exceeded", HttpStatusCode.TooManyRequests)
             }
         }
             // Cancel the rest of the pipeline

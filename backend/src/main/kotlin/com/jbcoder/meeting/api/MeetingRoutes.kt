@@ -5,6 +5,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.call
 import io.ktor.server.request.*
 import io.ktor.server.response.respond
+import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.post
 import io.ktor.server.routing.route
@@ -102,7 +103,7 @@ fun Route.meetingRoutes() {
                 
                 call.respond(HttpStatusCode.fromValue(status), responseData)
             } catch (e: com.jbcoder.meeting.domain.IdempotencyException) {
-                call.respond(e.status, mapOf("error" to e.errorCode))
+                throw com.jbcoder.meeting.domain.AppError(e.errorCode, e.message ?: e.errorCode, e.status)
             }
         }
 
@@ -133,7 +134,7 @@ fun Route.meetingRoutes() {
                     }
                     call.respond(HttpStatusCode.fromValue(status), responseData)
                 } catch (e: com.jbcoder.meeting.domain.IdempotencyException) {
-                    call.respond(e.status, mapOf("error" to e.errorCode))
+                    throw com.jbcoder.meeting.domain.AppError(e.errorCode, e.message ?: e.errorCode, e.status)
                 }
             }
 
@@ -163,7 +164,7 @@ fun Route.meetingRoutes() {
                     }
                     call.respond(HttpStatusCode.fromValue(status), responseData)
                 } catch (e: com.jbcoder.meeting.domain.IdempotencyException) {
-                    call.respond(e.status, mapOf("error" to e.errorCode))
+                    throw com.jbcoder.meeting.domain.AppError(e.errorCode, e.message ?: e.errorCode, e.status)
                 }
             }
 
@@ -193,7 +194,7 @@ fun Route.meetingRoutes() {
                     }
                     call.respond(HttpStatusCode.fromValue(status), responseData)
                 } catch (e: com.jbcoder.meeting.domain.IdempotencyException) {
-                    call.respond(e.status, mapOf("error" to e.errorCode))
+                    throw com.jbcoder.meeting.domain.AppError(e.errorCode, e.message ?: e.errorCode, e.status)
                 }
             }
 
@@ -223,7 +224,7 @@ fun Route.meetingRoutes() {
                     }
                     call.respond(HttpStatusCode.fromValue(status), responseData)
                 } catch (e: com.jbcoder.meeting.domain.IdempotencyException) {
-                    call.respond(e.status, mapOf("error" to e.errorCode))
+                    throw com.jbcoder.meeting.domain.AppError(e.errorCode, e.message ?: e.errorCode, e.status)
                 }
             }
 
@@ -253,7 +254,7 @@ fun Route.meetingRoutes() {
                     }
                     call.respond(HttpStatusCode.fromValue(status), responseData)
                 } catch (e: com.jbcoder.meeting.domain.IdempotencyException) {
-                    call.respond(e.status, mapOf("error" to e.errorCode))
+                    throw com.jbcoder.meeting.domain.AppError(e.errorCode, e.message ?: e.errorCode, e.status)
                 }
             }
         }
@@ -268,7 +269,7 @@ fun Route.meetingRoutes() {
                 val deviceSessionIdStr = mobilePrincipal.sessionId
                 
                 try {
-                    val (status, responseData) = com.jbcoder.meeting.domain.IdempotencyService.executeIdempotent<Map<String, String>>(
+                    val (status, responseData) = com.jbcoder.meeting.domain.IdempotencyService.executeIdempotent<String>(
                         key = idempotencyKey,
                         actorScope = deviceSessionIdStr,
                         meetingId = null,
@@ -278,14 +279,18 @@ fun Route.meetingRoutes() {
                     ) {
                         val result = com.jbcoder.meeting.domain.ParticipantService.leaveMeeting(meetingCode, deviceSessionIdStr)
                         if (result.isSuccess) {
-                            Pair(200, mapOf("status" to "LEFT"))
+                            Pair(204, "")
                         } else {
                             throw com.jbcoder.meeting.domain.AppError("LEAVE_FAILED", result.exceptionOrNull()?.message ?: "Internal Error", HttpStatusCode.BadRequest)
                         }
                     }
-                    call.respond(HttpStatusCode.fromValue(status), responseData)
+                    if (status == 204) {
+                        call.respond(HttpStatusCode.NoContent)
+                    } else {
+                        call.respondText((responseData as? String) ?: "", io.ktor.http.ContentType.Text.Plain, HttpStatusCode.fromValue(status))
+                    }
                 } catch (e: com.jbcoder.meeting.domain.IdempotencyException) {
-                    call.respond(e.status, mapOf("error" to e.errorCode))
+                    throw com.jbcoder.meeting.domain.AppError(e.errorCode, e.message ?: e.errorCode, e.status)
                 }
             }
         }

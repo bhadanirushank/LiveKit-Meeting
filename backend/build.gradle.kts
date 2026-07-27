@@ -76,6 +76,7 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
     testImplementation("io.mockk:mockk:1.13.10")
     testImplementation("eu.rekawek.toxiproxy:toxiproxy-java:2.1.7")
+    testImplementation("com.atlassian.oai:swagger-request-validator-core:2.46.1")
 
 }
 dependencyCheck {

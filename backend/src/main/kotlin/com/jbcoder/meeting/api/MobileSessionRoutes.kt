@@ -27,13 +27,13 @@ fun Route.mobileSessionRoutes() {
             val req = try {
                 call.receive<SessionBootstrapRequest>()
             } catch (e: Exception) {
-                return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Invalid payload"))
+                throw AppError("INVALID_PAYLOAD", "Invalid payload", HttpStatusCode.BadRequest)
             }
 
             val installationIdUuid = try {
                 UUID.fromString(req.installationId)
             } catch (e: Exception) {
-                return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "Invalid installationId format"))
+                throw AppError("INVALID_INSTALLATION_ID", "Invalid installationId format", HttpStatusCode.BadRequest)
             }
 
             val response = SessionService.bootstrapSession(
@@ -48,23 +48,20 @@ fun Route.mobileSessionRoutes() {
         post("/refresh") {
             // Read Authorization header manually since we don't want to use standard mobile-bearer
             // which only accepts atk_ access tokens.
-            val authHeader = call.request.header("Authorization") ?: return@post call.respond(
-                HttpStatusCode.Unauthorized, 
-                mapOf("error" to "Missing Authorization header")
+            val authHeader = call.request.header("Authorization") ?: throw AppError(
+                "MISSING_AUTHORIZATION",
+                "Missing Authorization header",
+                HttpStatusCode.Unauthorized
             )
 
             if (!authHeader.startsWith("Bearer ")) {
-                return@post call.respond(HttpStatusCode.Unauthorized, mapOf("error" to "Invalid Authorization format"))
+                throw AppError("INVALID_AUTHORIZATION_FORMAT", "Invalid Authorization format", HttpStatusCode.Unauthorized)
             }
 
             val refreshToken = authHeader.removePrefix("Bearer ").trim()
             
-            try {
-                val response = SessionService.refreshSession(refreshToken)
-                call.respond(HttpStatusCode.OK, response)
-            } catch (e: AppError) {
-                call.respond(e.status, mapOf("error" to e.code, "message" to e.message))
-            }
+            val response = SessionService.refreshSession(refreshToken)
+            call.respond(HttpStatusCode.OK, response)
         }
     }
 }

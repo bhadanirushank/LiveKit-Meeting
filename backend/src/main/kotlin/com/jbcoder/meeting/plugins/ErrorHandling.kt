@@ -16,9 +16,7 @@ fun Application.configureErrorHandling() {
                 cause.status,
                 ErrorResponse(
                     code = cause.code,
-                    message = cause.message,
-                    requestId = call.callId ?: "unknown",
-                    timestamp = Instant.now().toString()
+                    message = cause.message
                 )
             )
         }
@@ -28,9 +26,7 @@ fun Application.configureErrorHandling() {
                 HttpStatusCode.ServiceUnavailable,
                 ErrorResponse(
                     code = "SERVICE_UNAVAILABLE",
-                    message = "Service is temporarily unavailable due to database connectivity issues.",
-                    requestId = call.callId ?: "unknown",
-                    timestamp = Instant.now().toString()
+                    message = "Service is temporarily unavailable due to database connectivity issues."
                 )
             )
         }
@@ -41,9 +37,7 @@ fun Application.configureErrorHandling() {
                 HttpStatusCode.ServiceUnavailable,
                 ErrorResponse(
                     code = "SERVICE_UNAVAILABLE",
-                    message = "Service is temporarily unavailable due to database connectivity issues.",
-                    requestId = call.callId ?: "unknown",
-                    timestamp = Instant.now().toString()
+                    message = "Service is temporarily unavailable due to database connectivity issues."
                 )
             )
         }
@@ -54,9 +48,7 @@ fun Application.configureErrorHandling() {
                 HttpStatusCode.ServiceUnavailable,
                 ErrorResponse(
                     code = "SERVICE_UNAVAILABLE",
-                    message = "Service is temporarily unavailable due to cache connectivity issues.",
-                    requestId = call.callId ?: "unknown",
-                    timestamp = Instant.now().toString()
+                    message = "Service is temporarily unavailable due to cache connectivity issues."
                 )
             )
         }
@@ -67,9 +59,7 @@ fun Application.configureErrorHandling() {
                 HttpStatusCode.ServiceUnavailable,
                 ErrorResponse(
                     code = "SERVICE_UNAVAILABLE",
-                    message = "Service is temporarily unavailable due to upstream connectivity issues.",
-                    requestId = call.callId ?: "unknown",
-                    timestamp = Instant.now().toString()
+                    message = "Service is temporarily unavailable due to upstream connectivity issues."
                 )
             )
         }
@@ -79,9 +69,7 @@ fun Application.configureErrorHandling() {
                 HttpStatusCode.InternalServerError,
                 ErrorResponse(
                     code = "INTERNAL_SERVER_ERROR",
-                    message = "An unexpected error occurred.",
-                    requestId = call.callId ?: "unknown",
-                    timestamp = Instant.now().toString()
+                    message = "An unexpected error occurred."
                 )
             )
         }

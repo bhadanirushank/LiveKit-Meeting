@@ -5,9 +5,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class ErrorResponse(
     val code: String,
-    val message: String,
-    val requestId: String,
-    val timestamp: String
+    val message: String
 )
 
 open class AppError(

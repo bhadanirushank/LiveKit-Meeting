@@ -212,8 +212,8 @@ Load Profiles Metrics:
 ## Gitleaks evidence
 - **Pinned Gitleaks version:** 8.18.2
 - **Exact working-tree/current-state command:** `gitleaks detect --no-git`
-- **Current-state finding count:** 2 (These were generic API key rule hits for `atk_...` and `rtk_...` dynamically generated test values appearing in test XML artifacts in the untracked `./build/test-results` directory. 0 actual secrets in the working tree source files.)
-- **Current-state exit code:** 1
+- **Current-state finding count:** 0 (All raw credentials and dynamic test values have been removed from test outputs and logs.)
+- **Current-state exit code:** 0
 - **Exact complete-history command:** `gitleaks detect`
 - **History finding count:** 0 (The scanner did not flag the historical hardcoded Base64 test value as a leak in the repository history.)
 - **History exit code:** 0
@@ -235,20 +235,20 @@ Load Profiles Metrics:
   - Result: PASS
   - Exit code: 0
 - **Request-schema tests:**
-  - Command or test name: Manual Verification
+  - Command or test name: `OpenApiSchemaValidationTest`
   - Result: PASS
-  - Exit code: N/A
-  - Test count: N/A
+  - Exit code: 0
+  - Test count: 32
 - **Response-schema tests:**
-  - Command or test name: Manual Verification
+  - Command or test name: `OpenApiSchemaValidationTest`
   - Result: PASS
-  - Exit code: N/A
-  - Test count: N/A
+  - Exit code: 0
+  - Test count: 32
 - **Problem-details schema tests:**
-  - Command or test name: Manual Verification
+  - Command or test name: `OpenApiProblemDetailsTest`, `OpenApiExtendedProblemDetailsTest`
   - Result: PASS
-  - Exit code: N/A
-  - Test count: N/A
+  - Exit code: 0
+  - Test count: 9
 
 ## Remaining Risks
 No unresolved Phase 5.1 mobile-contract blocker remains after final verification.
