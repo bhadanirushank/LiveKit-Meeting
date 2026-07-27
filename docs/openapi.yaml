@@ -2,9 +2,7 @@ openapi: 3.1.0
 info:
   title: LiveKit Meeting API
   version: 1.0.0
-  description: >-
-    Backend API for the LiveKit Meeting Application. Implements secure ephemeral
-    meetings, waiting room management, live polling, and token issuance.
+  description: Backend API for the LiveKit Meeting Application. Implements secure ephemeral meetings, waiting room management, live polling, and token issuance.
   license:
     name: MIT
     identifier: MIT
@@ -123,6 +121,70 @@ components:
         message:
           type: string
           example: The requested meeting does not exist.
+    SessionBootstrapRequest:
+      type: object
+      required:
+        - installationId
+        - platform
+      properties:
+        installationId:
+          type: string
+          format: uuid
+        platform:
+          type: string
+        appVersion:
+          type:
+            - string
+            - 'null'
+        deviceModel:
+          type:
+            - string
+            - 'null'
+        osVersion:
+          type:
+            - string
+            - 'null'
+    SessionBootstrapResponse:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        accessTokenExpiresAt:
+          type: string
+          format: date-time
+        refreshTokenExpiresAt:
+          type: string
+          format: date-time
+    SessionRefreshResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        accessTokenExpiresAt:
+          type: string
+          format: date-time
+        refreshTokenExpiresAt:
+          type: string
+          format: date-time
+    EncryptedTokenResponse:
+      type: object
+      properties:
+        encryptedToken:
+          type: string
+        iv:
+          type: string
+    JoinRequestStatusResponse:
+      type: object
+      properties:
+        status:
+          type: string
 paths:
   /meetings:
     post:
@@ -225,7 +287,8 @@ paths:
     post:
       operationId: submitJoinRequest
       summary: Submit a request to join a meeting
-      security: []
+      security:
+        - bearerAuth: []
       parameters:
         - name: meetingCode
           in: path
@@ -289,7 +352,8 @@ paths:
     post:
       operationId: pollJoinRequest
       summary: Poll for admission status and get LiveKit token
-      security: []
+      security:
+        - bearerAuth: []
       parameters:
         - name: requestId
           in: path
@@ -297,25 +361,13 @@ paths:
           schema:
             type: string
             format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - deviceSessionId
-              properties:
-                deviceSessionId:
-                  type: string
-                  format: uuid
       responses:
         '200':
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TokenResponse'
+                $ref: '#/components/schemas/EncryptedTokenResponse'
         '202':
           description: Still waiting in the waiting room
         '403':
@@ -716,13 +768,13 @@ paths:
       responses:
         '200':
           description: OK
-        '400': &ref_0
+        '400':
           description: Bad Request
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-        '404': &ref_1
+        '404':
           description: Not Found
           content:
             application/json:
@@ -746,8 +798,18 @@ paths:
       responses:
         '200':
           description: OK
-        '400': *ref_0
-        '404': *ref_1
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /meetings/{meetingCode}/participants/{participantId}/mute:
     post:
       operationId: muteParticipant
@@ -766,8 +828,18 @@ paths:
       responses:
         '200':
           description: OK
-        '400': *ref_0
-        '404': *ref_1
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /meetings/{meetingCode}/participants/{participantId}/ask-to-unmute:
     post:
       operationId: askToUnmuteParticipant
@@ -786,8 +858,18 @@ paths:
       responses:
         '200':
           description: OK
-        '400': *ref_0
-        '404': *ref_1
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /meetings/{meetingCode}/participants/{participantId}/disable-publishing:
     post:
       operationId: disablePublishing
@@ -806,8 +888,18 @@ paths:
       responses:
         '200':
           description: OK
-        '400': *ref_0
-        '404': *ref_1
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /meetings/{meetingCode}/participants/{participantId}/restore-publishing:
     post:
       operationId: restorePublishing
@@ -826,8 +918,18 @@ paths:
       responses:
         '200':
           description: OK
-        '400': *ref_0
-        '404': *ref_1
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /meetings/{meetingCode}/participants/{participantId}/promote-cohost:
     post:
       operationId: promoteCohost
@@ -846,8 +948,18 @@ paths:
       responses:
         '200':
           description: OK
-        '400': *ref_0
-        '404': *ref_1
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /meetings/{meetingCode}/participants/{participantId}/demote-cohost:
     post:
       operationId: demoteCohost
@@ -866,8 +978,18 @@ paths:
       responses:
         '200':
           description: OK
-        '400': *ref_0
-        '404': *ref_1
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /webhooks/livekit:
     post:
       operationId: livekitWebhook
@@ -888,3 +1010,89 @@ paths:
           description: Unauthorized
         '503':
           description: Service Unavailable
+  /session/bootstrap:
+    post:
+      operationId: bootstrapSession
+      summary: Bootstrap a new mobile device session
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SessionBootstrapRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionBootstrapResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /session/refresh:
+    post:
+      operationId: refreshSession
+      summary: Refresh mobile device session tokens
+      security: []
+      parameters:
+        - name: Authorization
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionRefreshResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /join-requests/{requestId}:
+    get:
+      operationId: getJoinRequestStatus
+      summary: Get join request status
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JoinRequestStatusResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
