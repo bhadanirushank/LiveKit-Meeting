@@ -56,7 +56,17 @@ data class AppConfig(
                 livekitKey = getEnv("LIVEKIT_API_KEY"),
                 livekitSecret = getEnv("LIVEKIT_API_SECRET"),
                 jwtSecret = getEnv("JWT_SECRET"),
-                tokenDeliveryEncryptionKeyB64 = getEnv("TOKEN_DELIVERY_ENCRYPTION_KEY_B64"),
+                tokenDeliveryEncryptionKeyB64 = getEnv("TOKEN_DELIVERY_ENCRYPTION_KEY_B64").also { key ->
+                    try {
+                        val decoded = java.util.Base64.getDecoder().decode(key)
+                        if (decoded.size != 32) {
+                            throw IllegalArgumentException("TOKEN_DELIVERY_ENCRYPTION_KEY_B64 must decode to exactly 32 bytes, found ${decoded.size} bytes.")
+                        }
+                    } catch (e: IllegalArgumentException) {
+                        if (e.message?.contains("exactly 32 bytes") == true) throw e
+                        throw IllegalArgumentException("TOKEN_DELIVERY_ENCRYPTION_KEY_B64 must be valid Base64.")
+                    }
+                },
                 flywayMigrateOnStart = (System.getProperty("FLYWAY_MIGRATE_ON_START") ?: System.getenv("FLYWAY_MIGRATE_ON_START") ?: env?.get("FLYWAY_MIGRATE_ON_START") ?: "true").toBoolean()
             )
         }

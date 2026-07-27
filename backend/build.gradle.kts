@@ -1,5 +1,8 @@
 import java.time.Duration
+import java.security.SecureRandom
+import java.util.Base64
 
+val dynamicTestKey = Base64.getEncoder().encodeToString(ByteArray(32).apply { SecureRandom().nextBytes(this) })
 plugins {
     kotlin("jvm") version "2.4.10"
     id("io.ktor.plugin") version "2.3.11"
@@ -136,8 +139,8 @@ tasks.withType<Test> {
     environment("POSTGRES_HOST", "localhost")
     environment("REDIS_HOST", "localhost")
     environment("LIVEKIT_URL", "ws://localhost:7880")
-    environment("TOKEN_DELIVERY_ENCRYPTION_KEY_B64", "fF94w8e9b6W/vjBqf2LpTQ==")
-    systemProperty("TOKEN_DELIVERY_ENCRYPTION_KEY_B64", "fF94w8e9b6W/vjBqf2LpTQ==")
+    environment("TOKEN_DELIVERY_ENCRYPTION_KEY_B64", dynamicTestKey)
+    systemProperty("TOKEN_DELIVERY_ENCRYPTION_KEY_B64", dynamicTestKey)
 }
 
 tasks.register<Test>("composeIntegrationTest") {

@@ -4,7 +4,7 @@
 - **Base tag:** phase5-backend-accepted
 - **Base SHA:** 1d66b0a
 - **Branch:** phase5.1/mobile-contracts
-- **Actual final HEAD SHA:** b5d1c927140e6b51105a3fe0e3a4168aed7f29c0
+- **Actual final HEAD SHA:** f2dce6c95f3c8a08b6a91f821e830badc727dcfb
 - **Implementation commit SHA:** ce595d3281beb4e40b5d099aa74083796f01a71e
 - **Complete Phase 5.1 commit list:**
   - `b5d1c92` docs: update final SHA for Phase 5.1
@@ -91,7 +91,7 @@
 - **Exit codes:** 0 for all validation tools.
 
 ## Security evidence
-- **Working-tree Gitleaks:** Passed (0 issues after ignoring test placeholder).
+- **Working-tree Gitleaks:** Passed. Hardcoded encryption test key and `.gitleaksignore` suppression have been completely removed.
 - **History Gitleaks:** Passed.
 - **Redaction tests:** Logs do NOT contain raw `atk_` or `rtk_`.
 - **Remaining risks:** None identified.
