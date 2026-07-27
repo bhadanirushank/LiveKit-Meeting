@@ -42,7 +42,7 @@ dependencies {
     implementation("io.ktor:ktor-client-cio-jvm:2.3.13")
 
     // Database & Migrations
-    implementation("org.postgresql:postgresql:42.7.11")
+    implementation("org.postgresql:postgresql:42.7.12")
     implementation("com.zaxxer:HikariCP:5.1.0")
     implementation("org.jetbrains.exposed:exposed-core:0.48.0")
     implementation("org.jetbrains.exposed:exposed-jdbc:0.48.0")
