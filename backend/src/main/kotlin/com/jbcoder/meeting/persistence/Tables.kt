@@ -195,3 +195,34 @@ object ModerationOutboxTable : Table("moderation_outbox") {
     
     override val primaryKey = PrimaryKey(id)
 }
+
+object DeviceSessionsTable : Table("device_sessions") {
+    val id = uuid("id")
+    val installationId = uuid("installation_id")
+    val accessTokenHash = varchar("access_token_hash", 255).uniqueIndex()
+    val refreshTokenHash = varchar("refresh_token_hash", 255).uniqueIndex()
+    val accessExpiresAt = timestamp("access_expires_at")
+    val refreshExpiresAt = timestamp("refresh_expires_at")
+    val revokedAt = timestamp("revoked_at").nullable()
+    val createdAt = timestamp("created_at")
+    val updatedAt = timestamp("updated_at")
+    val lastUsedAt = timestamp("last_used_at")
+    val platform = varchar("platform", 50)
+    val appVersion = varchar("app_version", 100).nullable()
+
+    override val primaryKey = PrimaryKey(id)
+}
+
+object LiveKitTokenDeliveriesTable : Table("livekit_token_deliveries") {
+    val id = uuid("id")
+    val joinRequestId = reference("join_request_id", ParticipantSessionsTable.id).uniqueIndex()
+    val deviceSessionId = reference("device_session_id", DeviceSessionsTable.id)
+    val idempotencyKeyHash = varchar("idempotency_key_hash", 255)
+    val encryptedTokenPayload = text("encrypted_token_payload")
+    val encryptionIv = varchar("encryption_iv", 255)
+    val tokenExpiresAt = timestamp("token_expires_at")
+    val replayExpiresAt = timestamp("replay_expires_at")
+    val createdAt = timestamp("created_at")
+
+    override val primaryKey = PrimaryKey(id)
+}

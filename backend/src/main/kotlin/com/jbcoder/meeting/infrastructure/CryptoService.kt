@@ -69,4 +69,21 @@ object CryptoService {
         secureRandom.nextBytes(bytes)
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
     }
+
+    /**
+     * Hashes a 256-bit cryptographically secure token using SHA-256 for fast indexed database lookups.
+     * Do not use for user passwords, only for machine-generated high-entropy tokens.
+     */
+    fun sha256(value: String): String {
+        val digest = java.security.MessageDigest.getInstance("SHA-256")
+        val hashBytes = digest.digest(value.toByteArray(Charsets.UTF_8))
+        return hashBytes.joinToString("") { "%02x".format(it) }
+    }
+
+    /**
+     * Constant-time string comparison to prevent timing attacks.
+     */
+    fun constantTimeEquals(a: String, b: String): Boolean {
+        return java.security.MessageDigest.isEqual(a.toByteArray(Charsets.UTF_8), b.toByteArray(Charsets.UTF_8))
+    }
 }

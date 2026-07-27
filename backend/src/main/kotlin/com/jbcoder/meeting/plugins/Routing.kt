@@ -5,6 +5,7 @@ import com.jbcoder.meeting.api.hostSessionRoutes
 import com.jbcoder.meeting.api.joinRequestRoutes
 import com.jbcoder.meeting.api.meetingRoutes
 import com.jbcoder.meeting.api.waitingRoomRoutes
+import com.jbcoder.meeting.api.mobileSessionRoutes
 import com.jbcoder.meeting.api.moderationRoutes
 import com.jbcoder.meeting.api.webhookRoutes
 import com.jbcoder.meeting.api.pollRoutes
@@ -22,6 +23,7 @@ fun Application.configureRouting(config: AppConfig) {
                 windowSeconds = 60
             }
             healthRoutes(config)
+            mobileSessionRoutes()
             joinRequestRoutes()
             meetingRoutes()
             hostSessionRoutes()
