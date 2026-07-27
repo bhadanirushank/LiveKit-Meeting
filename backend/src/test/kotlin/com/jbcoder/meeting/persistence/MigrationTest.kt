@@ -90,7 +90,7 @@ class MigrationTest {
         // Migrate empty -> latest
         val result = flyway.migrate()
         assertTrue(result.migrationsExecuted > 0, "Migrations should have been executed")
-        assertEquals(7, result.migrationsExecuted, "Expected 7 migrations to run")
+        assertEquals(10, result.migrationsExecuted, "Expected 10 migrations to run")
     }
 
     @Test

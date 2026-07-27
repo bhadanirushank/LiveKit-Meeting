@@ -136,6 +136,8 @@ tasks.withType<Test> {
     environment("POSTGRES_HOST", "localhost")
     environment("REDIS_HOST", "localhost")
     environment("LIVEKIT_URL", "ws://localhost:7880")
+    environment("TOKEN_DELIVERY_ENCRYPTION_KEY_B64", "fF94w8e9b6W/vjBqf2LpTQ==")
+    systemProperty("TOKEN_DELIVERY_ENCRYPTION_KEY_B64", "fF94w8e9b6W/vjBqf2LpTQ==")
 }
 
 tasks.register<Test>("composeIntegrationTest") {

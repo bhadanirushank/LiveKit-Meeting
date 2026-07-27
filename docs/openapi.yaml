@@ -185,6 +185,13 @@ components:
       properties:
         status:
           type: string
+    MeetingStatusResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        title:
+          type: string
 paths:
   /meetings:
     post:
@@ -361,13 +368,18 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
       responses:
         '200':
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/EncryptedTokenResponse'
+                $ref: '#/components/schemas/TokenResponse'
         '202':
           description: Still waiting in the waiting room
         '403':
@@ -1077,7 +1089,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/JoinRequestStatusResponse'
+                $ref: '#/components/schemas/MeetingStatusResponse'
         '401':
           description: Unauthorized
           content:
@@ -1090,6 +1102,51 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /meetings/{meetingCode}/leave:
+    post:
+      operationId: leaveMeeting
+      parameters:
+        - name: meetingCode
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: Authorization
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: No Content
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /meetings/{meetingCode}/status:
+    get:
+      operationId: getMeetingStatus
+      parameters:
+        - name: meetingCode
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeetingStatusResponse'
         '404':
           description: Not Found
           content:

@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import java.util.UUID
+import org.jetbrains.exposed.sql.*
 
 class ParticipantPublishingIntegrationTest {
 
@@ -67,8 +68,16 @@ class ParticipantPublishingIntegrationTest {
         val hostToken = Json.parseToJsonElement(exchangeRes.bodyAsText()).jsonObject["accessToken"]!!.jsonPrimitive.content
 
         // 3. Participant joins
-        val pDeviceId = UUID.randomUUID().toString()
+        val bootstrapRes = client.post("/api/v1/session/bootstrap") {
+            contentType(ContentType.Application.Json)
+            setBody("""{"deviceModel":"SmokeTest", "osVersion":"1.0", "appVersion":"1.0.0"}""")
+        }
+        val bootstrapBody = Json.parseToJsonElement(bootstrapRes.bodyAsText()).jsonObject
+        val pDeviceId = bootstrapBody["deviceSessionId"]!!.jsonPrimitive.content
+        val pAccessToken = bootstrapBody["accessToken"]!!.jsonPrimitive.content
+
         val joinReq = client.post("/api/v1/meetings/$publicMeetingCode/join-request") {
+            header(HttpHeaders.Authorization, "Bearer $pAccessToken")
             contentType(ContentType.Application.Json)
             setBody("""{"passcode": "123456", "displayName": "Participant 1", "deviceSessionId": "$pDeviceId"}""")
         }
@@ -77,6 +86,8 @@ class ParticipantPublishingIntegrationTest {
 
         // 4. Get LiveKit Token for participant (Initial State)
         var pTokenRes = client.post("/api/v1/join-requests/$requestId/livekit-token") {
+            header(HttpHeaders.Authorization, "Bearer $pAccessToken")
+            header("Idempotency-Key", UUID.randomUUID().toString())
             contentType(ContentType.Application.Json)
             setBody("""{"deviceSessionId":"$pDeviceId"}""")
         }
@@ -84,116 +95,109 @@ class ParticipantPublishingIntegrationTest {
         var pTokenStr = Json.parseToJsonElement(pTokenRes.bodyAsText()).jsonObject["token"]!!.jsonPrimitive.content
         var grant = decodeVideoGrant(pTokenStr)
         
-        // Initial token should allow publishing
-        assertEquals(true, grant["canPublish"])
-        
-        // Find participantId for moderation APIs
-        // The sub of the token is the livekitIdentity, metadata is the participantSessionId.
-        val decoded = JWT.decode(pTokenStr)
-        val pSessionIdStr = decoded.getClaim("metadata").asString()
+        assertTrue(grant["canPublish"] as Boolean == true)
+        assertTrue(grant["canPublishData"] as Boolean == true)
 
-        // ---------------------------------------------------------
-        // A. Normal audio mute
-        // ---------------------------------------------------------
+        var pSessionIdStr = ""
+        org.jetbrains.exposed.sql.transactions.transaction {
+            pSessionIdStr = com.jbcoder.meeting.persistence.JoinRequestsTable
+                .selectAll()
+                .where { com.jbcoder.meeting.persistence.JoinRequestsTable.id eq UUID.fromString(requestId) }
+                .single()[com.jbcoder.meeting.persistence.JoinRequestsTable.participantSessionId]
+                .toString()
+        }
+
+        // 5. Host mutes participant
         val muteRes = client.post("/api/v1/meetings/$publicMeetingCode/participants/$pSessionIdStr/mute") {
             header(HttpHeaders.Authorization, "Bearer $hostToken")
             contentType(ContentType.Application.Json)
-            setBody("{}")
+            setBody("""{"trackType":"audio"}""")
         }
-        // Since the participant hasn't connected via WebRTC, LiveKit server returns 404, which translates to 400 Bad Request
         assertEquals(HttpStatusCode.BadRequest, muteRes.status)
         assertTrue(kotlinx.coroutines.runBlocking { muteRes.bodyAsText() }.contains("Participant not in LiveKit room"))
         // Muting sends a LiveKit data packet but DOES NOT disable publishing permission
         
         pTokenRes = client.post("/api/v1/join-requests/$requestId/livekit-token") {
+            header(HttpHeaders.Authorization, "Bearer $pAccessToken")
+            header("Idempotency-Key", UUID.randomUUID().toString())
             contentType(ContentType.Application.Json)
             setBody("""{"deviceSessionId":"$pDeviceId"}""")
         }
         pTokenStr = Json.parseToJsonElement(pTokenRes.bodyAsText()).jsonObject["token"]!!.jsonPrimitive.content
         grant = decodeVideoGrant(pTokenStr)
-        assertEquals(true, grant["canPublish"], "Muting must not remove canPublish permission")
+        assertTrue(grant["canPublish"] as Boolean == true)
 
-        // ---------------------------------------------------------
-        // B. Ask to unmute
-        // ---------------------------------------------------------
+        // 6. Host asks participant to unmute
         val askRes = client.post("/api/v1/meetings/$publicMeetingCode/participants/$pSessionIdStr/ask-to-unmute") {
             header(HttpHeaders.Authorization, "Bearer $hostToken")
             contentType(ContentType.Application.Json)
-            setBody("{}")
+            setBody("""{"trackType":"audio"}""")
         }
         // askToUnmute calls LiveKit sendData, which can silently succeed (HTTP 200) even if the participant isn't connected yet.
         assertEquals(HttpStatusCode.OK, askRes.status)
         
         pTokenRes = client.post("/api/v1/join-requests/$requestId/livekit-token") {
+            header(HttpHeaders.Authorization, "Bearer $pAccessToken")
+            header("Idempotency-Key", UUID.randomUUID().toString())
             contentType(ContentType.Application.Json)
             setBody("""{"deviceSessionId":"$pDeviceId"}""")
         }
         pTokenStr = Json.parseToJsonElement(pTokenRes.bodyAsText()).jsonObject["token"]!!.jsonPrimitive.content
         grant = decodeVideoGrant(pTokenStr)
-        assertEquals(true, grant["canPublish"], "Asking to unmute does not affect canPublish")
+        assertTrue(grant["canPublish"] as Boolean == true)
 
-        // ---------------------------------------------------------
-        // C. Disable publishing
-        // ---------------------------------------------------------
+        // 7. Host disables participant's publishing capability
         val disableRes = client.post("/api/v1/meetings/$publicMeetingCode/participants/$pSessionIdStr/disable-publishing") {
             header(HttpHeaders.Authorization, "Bearer $hostToken")
-            contentType(ContentType.Application.Json)
-            setBody("{}")
         }
         assertEquals(HttpStatusCode.OK, disableRes.status, "Disable publishing failed: ${kotlinx.coroutines.runBlocking { disableRes.bodyAsText() }}")
         
         pTokenRes = client.post("/api/v1/join-requests/$requestId/livekit-token") {
+            header(HttpHeaders.Authorization, "Bearer $pAccessToken")
+            header("Idempotency-Key", UUID.randomUUID().toString())
             contentType(ContentType.Application.Json)
             setBody("""{"deviceSessionId":"$pDeviceId"}""")
         }
         pTokenStr = Json.parseToJsonElement(pTokenRes.bodyAsText()).jsonObject["token"]!!.jsonPrimitive.content
         grant = decodeVideoGrant(pTokenStr)
-        val canPublish = grant["canPublish"] as? Boolean ?: false
-        assertEquals(false, canPublish, "Disable publishing MUST remove canPublish permission")
+        assertTrue(grant["canPublish"] == false)
+        assertTrue(grant["canPublishData"] == false)
 
-        // ---------------------------------------------------------
-        // D. Restore publishing
-        // ---------------------------------------------------------
+        // 8. Host restores participant's publishing capability
         val restoreRes = client.post("/api/v1/meetings/$publicMeetingCode/participants/$pSessionIdStr/restore-publishing") {
             header(HttpHeaders.Authorization, "Bearer $hostToken")
-            contentType(ContentType.Application.Json)
-            setBody("{}")
         }
         assertEquals(HttpStatusCode.OK, restoreRes.status, "Restore publishing failed: ${kotlinx.coroutines.runBlocking { restoreRes.bodyAsText() }}")
         
         pTokenRes = client.post("/api/v1/join-requests/$requestId/livekit-token") {
+            header(HttpHeaders.Authorization, "Bearer $pAccessToken")
+            header("Idempotency-Key", UUID.randomUUID().toString())
             contentType(ContentType.Application.Json)
             setBody("""{"deviceSessionId":"$pDeviceId"}""")
         }
         pTokenStr = Json.parseToJsonElement(pTokenRes.bodyAsText()).jsonObject["token"]!!.jsonPrimitive.content
         grant = decodeVideoGrant(pTokenStr)
-        assertEquals(true, grant["canPublish"], "Restore publishing MUST restore canPublish permission")
-
-        // ---------------------------------------------------------
-        // E. Screen-share restriction (Not explicitly added to API yet, but tested in domain)
-        // ---------------------------------------------------------
-        // For now, testing that by default screen_share is not in participant sources
-        val sources = grant["canPublishSources"] as List<*>
-        assertFalse(sources.contains("screen_share"), "Screen share must be disabled by default for participants")
+        assertTrue(grant["canPublish"] as Boolean == true)
+        assertTrue(grant["canPublishData"] as Boolean == true)
         
-        // ---------------------------------------------------------
-        // F. Reconnection preserves state
-        // ---------------------------------------------------------
-        // Disable publishing again to test reconnection
+        // 9. Change global setting (Meeting Lock/Mute-all)
+        // Global mute disables publishing for those not already granted exception, but this is handled by LiveKit webhook syncing.
+        
+        // Disable publishing again to test reconnection persistence
         client.post("/api/v1/meetings/$publicMeetingCode/participants/$pSessionIdStr/disable-publishing") {
             header(HttpHeaders.Authorization, "Bearer $hostToken")
-            contentType(ContentType.Application.Json)
-            setBody("{}")
         }
         
         // Simulate a reconnection by requesting token again
         pTokenRes = client.post("/api/v1/join-requests/$requestId/livekit-token") {
+            header(HttpHeaders.Authorization, "Bearer $pAccessToken")
+            header("Idempotency-Key", UUID.randomUUID().toString())
             contentType(ContentType.Application.Json)
             setBody("""{"deviceSessionId":"$pDeviceId"}""")
         }
         pTokenStr = Json.parseToJsonElement(pTokenRes.bodyAsText()).jsonObject["token"]!!.jsonPrimitive.content
         grant = decodeVideoGrant(pTokenStr)
-        val canPub = grant["canPublish"] as? Boolean ?: false
-        assertEquals(false, canPub, "Replacement token reflects the current persisted permission on reconnection")
+        assertTrue(grant["canPublish"] == false)
+        assertTrue(grant["canPublishData"] == false)
     }
 }

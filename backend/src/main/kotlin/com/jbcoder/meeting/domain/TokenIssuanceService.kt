@@ -11,6 +11,8 @@ import com.jbcoder.meeting.domain.ParticipantState
 import java.time.Instant
 import java.util.UUID
 
+import com.jbcoder.meeting.persistence.LiveKitTokenDeliveriesTable
+
 object TokenIssuanceService {
 
     /**
@@ -21,124 +23,122 @@ object TokenIssuanceService {
     }
 
     /**
-     * Issues a token if all security and meeting state conditions are met.
+     * Issues a token with strong PostgreSQL-authoritative idempotency, one-time consumption, and encrypted storage at rest.
      */
-    suspend fun issueToken(joinRequestId: UUID, deviceSessionId: String): Result<String> {
-        // 1. Check blocked status
+    suspend fun issueMobileToken(joinRequestId: UUID, deviceSessionId: String, idempotencyKey: String, encryptionKeyB64: String): Result<String> {
         if (isBlocked(deviceSessionId)) {
             return Result.failure(Exception("Participant is blocked from joining"))
         }
 
+        val idempotencyHash = com.jbcoder.meeting.infrastructure.CryptoService.sha256(idempotencyKey)
+        val encryptionKeyBytes = java.util.Base64.getDecoder().decode(encryptionKeyB64)
+        if (encryptionKeyBytes.size != 32) {
+            return Result.failure(Exception("Invalid backend encryption key length"))
+        }
+
         return transaction {
-            // Retrieve join request and participant session
-            val requestRow = JoinRequestsTable.selectAll().where { JoinRequestsTable.id eq joinRequestId }.singleOrNull()
-                ?: return@transaction Result.failure(Exception("Join request not found"))
+            // Check for existing delivery (REPLAY)
+            val existingDelivery = com.jbcoder.meeting.persistence.LiveKitTokenDeliveriesTable.selectAll()
+                .where { 
+                    (com.jbcoder.meeting.persistence.LiveKitTokenDeliveriesTable.joinRequestId eq joinRequestId) 
+                }.singleOrNull()
+            
+            if (existingDelivery != null) {
+                // If the idempotency key matches AND replay window is valid, return success
+                val storedHash = existingDelivery[com.jbcoder.meeting.persistence.LiveKitTokenDeliveriesTable.idempotencyKeyHash]
+                val replayExpires = existingDelivery[com.jbcoder.meeting.persistence.LiveKitTokenDeliveriesTable.replayExpiresAt]
+                
+                if (storedHash == idempotencyHash) {
+                    if (Instant.now().isAfter(replayExpires)) {
+                        return@transaction Result.failure(com.jbcoder.meeting.domain.AppError("REPLAY_EXPIRED", "Token replay window has expired", io.ktor.http.HttpStatusCode.Gone))
+                    }
+                    val encryptedPayload = existingDelivery[com.jbcoder.meeting.persistence.LiveKitTokenDeliveriesTable.encryptedTokenPayload]
+                    val iv = existingDelivery[com.jbcoder.meeting.persistence.LiveKitTokenDeliveriesTable.encryptionIv]
+                    val decryptedToken = com.jbcoder.meeting.infrastructure.CryptoService.decryptAesGcm(encryptedPayload, iv, encryptionKeyBytes)
+                    return@transaction Result.success(decryptedToken)
+                } else {
+                    // Different idempotency key, same join request!
+                    return@transaction Result.failure(com.jbcoder.meeting.domain.AppError("TOKEN_ALREADY_ISSUED", "TOKEN_ALREADY_ISSUED", io.ktor.http.HttpStatusCode.Conflict))
+                }
+            }
+
+            // Lock the join request row for concurrency control
+            val requestRow = JoinRequestsTable.selectAll()
+                .where { JoinRequestsTable.id eq joinRequestId }
+                .forUpdate()
+                .singleOrNull()
+                ?: return@transaction Result.failure(com.jbcoder.meeting.domain.AppError("JOIN_REQUEST_NOT_FOUND", "Join request not found", io.ktor.http.HttpStatusCode.NotFound))
+            
+            // Verify ownership
+            if (requestRow[JoinRequestsTable.deviceSessionId]?.toString() != deviceSessionId) {
+                return@transaction Result.failure(com.jbcoder.meeting.domain.AppError("JOIN_REQUEST_NOT_OWNED", "JOIN_REQUEST_NOT_OWNED", io.ktor.http.HttpStatusCode.Forbidden))
+            }
             
             val status = JoinRequestStatus.valueOf(requestRow[JoinRequestsTable.status])
             val expiresAt = requestRow[JoinRequestsTable.expiresAt]
             
             if (expiresAt.isBefore(Instant.now())) {
-                return@transaction Result.failure(Exception("Join request expired"))
+                return@transaction Result.failure(com.jbcoder.meeting.domain.AppError("JOIN_REQUEST_EXPIRED", "Join request expired", io.ktor.http.HttpStatusCode.Forbidden))
+            }
+            if (status != JoinRequestStatus.ADMITTED) {
+                if (status == JoinRequestStatus.PENDING) {
+                    return@transaction Result.failure(Exception("WAITING_ROOM")) // Caught and mapped to 202
+                }
+                return@transaction Result.failure(com.jbcoder.meeting.domain.AppError("PARTICIPANT_REJECTED", "PARTICIPANT_REJECTED", io.ktor.http.HttpStatusCode.Forbidden))
             }
 
             val participantId = requestRow[JoinRequestsTable.participantSessionId]
-            val participantRow = ParticipantSessionsTable.selectAll().where { ParticipantSessionsTable.id eq participantId }.singleOrNull()
+            
+            // Lock participant row
+            val participantRow = ParticipantSessionsTable.selectAll()
+                .where { ParticipantSessionsTable.id eq participantId }
+                .forUpdate()
+                .singleOrNull()
                 ?: return@transaction Result.failure(Exception("Participant not found"))
                 
-            if (participantRow[ParticipantSessionsTable.state] == ParticipantState.REMOVED.name) {
-                return@transaction Result.failure(Exception("Participant has been removed from this meeting"))
+            if (participantRow[ParticipantSessionsTable.state] == ParticipantState.REMOVED.name ||
+                participantRow[ParticipantSessionsTable.state] == ParticipantState.LEFT.name) {
+                return@transaction Result.failure(Exception("Participant is not eligible (LEFT/REMOVED)"))
             }
                 
             val meetingId = participantRow[ParticipantSessionsTable.meetingId]
             
-            // Acquire row lock to ensure atomic capacity counting
             val meeting = MeetingRepository.findByIdForUpdate(meetingId)
                 ?: return@transaction Result.failure(Exception("Meeting not found"))
 
-            // Verify device matches
-            // Wait, we didn't insert deviceSessionId into participant_sessions during join request... 
-            // We'll trust the caller for now or enforce it properly.
-
-            // 2. Enforce Lock Rules
-            if (meeting.isLocked) {
-                // Check and atomically consume one-time admission authorization
-                val consumedRows = com.jbcoder.meeting.persistence.LockedMeetingAuthorizationsTable.update({
-                    (com.jbcoder.meeting.persistence.LockedMeetingAuthorizationsTable.participantSessionId eq participantId) and
-                    (com.jbcoder.meeting.persistence.LockedMeetingAuthorizationsTable.consumedAt.isNull()) and
-                    (com.jbcoder.meeting.persistence.LockedMeetingAuthorizationsTable.expiresAt greaterEq Instant.now())
-                }) {
-                    it[consumedAt] = Instant.now()
-                }
-                if (consumedRows == 0) {
-                    return@transaction Result.failure(Exception("MEETING_LOCKED"))
+            // Verify meeting state
+            if (meeting.status != MeetingStatus.LIVE && meeting.status != MeetingStatus.SCHEDULED) {
+                return@transaction Result.failure(com.jbcoder.meeting.domain.AppError("MEETING_ENDED", "MEETING_ENDED", io.ktor.http.HttpStatusCode.Forbidden))
+            }
+            if (meeting.status == MeetingStatus.SCHEDULED && meeting.scheduledStart != null) {
+                val earlyWindow = meeting.scheduledStart.minusSeconds(900)
+                if (Instant.now().isBefore(earlyWindow)) {
+                    return@transaction Result.failure(Exception("Meeting has not started yet"))
                 }
             }
 
-            // 3. Validate Meeting State for Join Before Host
-            when (meeting.status) {
-                MeetingStatus.LIVE -> {
-                    // Allowed
-                }
-                MeetingStatus.READY -> {
-                    if (!meeting.joinBeforeHostEnabled && status != JoinRequestStatus.ADMITTED) {
-                        // They can't join the room, but they can enter the waiting room if enabled
-                        if (!meeting.waitingRoomEnabled) {
-                            return@transaction Result.failure(Exception("Waiting for host to start meeting"))
-                        }
-                    }
-                }
-                MeetingStatus.SCHEDULED -> {
-                    val start = meeting.scheduledStart
-                    if (start != null) {
-                        val earlyWindow = start.minusSeconds(900) // 15 mins
-                        if (Instant.now().isBefore(earlyWindow)) {
-                            return@transaction Result.failure(Exception("Meeting has not started yet"))
-                        }
-                    }
-                    if (!meeting.joinBeforeHostEnabled && status != JoinRequestStatus.ADMITTED) {
-                        if (!meeting.waitingRoomEnabled) {
-                            return@transaction Result.failure(Exception("Waiting for host to start meeting"))
-                        }
-                    }
-                }
-                else -> {
-                    return@transaction Result.failure(Exception("Meeting is not active"))
-                }
-            }
-
-            // 4. Waiting Room Rules
-            if (meeting.waitingRoomEnabled) {
-                if (status == JoinRequestStatus.PENDING) {
-                    return@transaction Result.failure(Exception("WAITING_ROOM"))
-                }
-                if (status == JoinRequestStatus.REJECTED) {
-                    return@transaction Result.failure(Exception("Rejected by host"))
-                }
-            } else {
-                // If waiting room disabled, we can auto-admit them unless locked
-                if (status == JoinRequestStatus.PENDING && !meeting.isLocked) {
-                    val activeCount = ParticipantSessionsTable.selectAll()
-                        .where {
-                            (ParticipantSessionsTable.meetingId eq meetingId) and
-                            (ParticipantSessionsTable.state inList listOf(ParticipantState.ADMITTED.name, ParticipantState.JOINED.name))
-                        }.count()
-                    if (activeCount >= meeting.maximumParticipants) {
-                        return@transaction Result.failure(Exception("Meeting is at maximum capacity"))
-                    }
-                    // Implicitly allow
-                } else if (status != JoinRequestStatus.ADMITTED) {
-                    return@transaction Result.failure(Exception("WAITING_ROOM"))
-                }
+            // Consume authorization (atomic transition to TOKEN_ISSUED)
+            val updatedRows = ParticipantSessionsTable.update({ 
+                (ParticipantSessionsTable.id eq participantId) and 
+                (ParticipantSessionsTable.tokenIssuedAt.isNull()) 
+            }) {
+                it[tokenIssuedAt] = Instant.now()
             }
             
-            // 5. Generate Token
+            if (updatedRows == 0) {
+                // Another thread might have just issued it? But we locked `join_requests`. 
+                // Either way, if token already issued natively, reject.
+                return@transaction Result.failure(com.jbcoder.meeting.domain.AppError("TOKEN_ALREADY_ISSUED", "TOKEN_ALREADY_ISSUED", io.ktor.http.HttpStatusCode.Conflict))
+            }
+
+            // Generate Token
             val livekitIdentity = participantRow[ParticipantSessionsTable.livekitIdentity]
             val displayName = participantRow[ParticipantSessionsTable.displayName]
             val roleName = participantRow[ParticipantSessionsTable.role]
             val publishRestricted = participantRow[ParticipantSessionsTable.publishRestricted]
             val screenShareAllowed = participantRow[ParticipantSessionsTable.screenShareAllowed]
             
-            val token = LiveKitTokenService.createToken(
+            val rawToken = LiveKitTokenService.createToken(
                 roomName = meeting.livekitRoomName,
                 participantIdentity = livekitIdentity,
                 participantName = displayName,
@@ -147,8 +147,23 @@ object TokenIssuanceService {
                 publishRestricted = publishRestricted,
                 screenShareAllowed = screenShareAllowed
             )
+
+            // Encrypt and store securely (AT REST ONLY)
+            val (encryptedPayload, iv) = com.jbcoder.meeting.infrastructure.CryptoService.encryptAesGcm(rawToken, encryptionKeyBytes)
             
-            Result.success(token)
+            LiveKitTokenDeliveriesTable.insert {
+                it[LiveKitTokenDeliveriesTable.id] = UUID.randomUUID()
+                it[LiveKitTokenDeliveriesTable.joinRequestId] = joinRequestId
+                it[LiveKitTokenDeliveriesTable.deviceSessionId] = UUID.fromString(deviceSessionId)
+                it[LiveKitTokenDeliveriesTable.idempotencyKeyHash] = idempotencyHash
+                it[LiveKitTokenDeliveriesTable.encryptedTokenPayload] = encryptedPayload
+                it[LiveKitTokenDeliveriesTable.encryptionIv] = iv
+                it[LiveKitTokenDeliveriesTable.tokenExpiresAt] = Instant.now().plusSeconds(7200)
+                it[LiveKitTokenDeliveriesTable.replayExpiresAt] = Instant.now().plusSeconds(60) // 60s replay window
+                it[LiveKitTokenDeliveriesTable.createdAt] = Instant.now()
+            }
+
+            Result.success(rawToken)
         }
     }
 }

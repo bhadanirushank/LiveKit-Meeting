@@ -132,37 +132,27 @@ fun Route.joinRequestRoutes() {
                     return@post call.respond(HttpStatusCode.Forbidden)
                 }
                 
-                val result = com.jbcoder.meeting.domain.TokenIssuanceService.issueToken(requestId, mobilePrincipal.sessionId)
+                // 1. Get and validate Idempotency-Key
+                val idempotencyKey = call.request.headers["Idempotency-Key"]
+                if (idempotencyKey.isNullOrBlank() || idempotencyKey.length !in 16..128 || !idempotencyKey.matches(Regex("^[\\w\\-]+$"))) {
+                    throw com.jbcoder.meeting.domain.AppError("INVALID_IDEMPOTENCY_KEY", "INVALID_IDEMPOTENCY_KEY", HttpStatusCode.BadRequest)
+                }
+
+                // 2. Fetch encryption key from config
+                val config = com.jbcoder.meeting.configuration.AppConfig.load()
+                val encryptionKeyB64 = config.tokenDeliveryEncryptionKeyB64
+                
+                val result = com.jbcoder.meeting.domain.TokenIssuanceService.issueMobileToken(requestId, mobilePrincipal.sessionId, idempotencyKey, encryptionKeyB64)
                 
                 if (result.isSuccess) {
                     val rawToken = result.getOrThrow()
-                    // Encrypt with Bearer token
-                    val authHeader = call.request.headers["Authorization"]?.removePrefix("Bearer ") ?: ""
-                    val keyBytes = java.security.MessageDigest.getInstance("SHA-256").digest(authHeader.toByteArray(Charsets.UTF_8))
-                    
-                    val (encryptedPayload, iv) = com.jbcoder.meeting.infrastructure.CryptoService.encryptAesGcm(rawToken, keyBytes)
-                    val idempotencyHash = com.jbcoder.meeting.infrastructure.CryptoService.sha256(requestId.toString() + encryptedPayload)
-                    
-                    transaction {
-                        com.jbcoder.meeting.persistence.LiveKitTokenDeliveriesTable.insert {
-                            it[id] = java.util.UUID.randomUUID()
-                            it[joinRequestId] = requestId
-                            it[deviceSessionId] = java.util.UUID.fromString(mobilePrincipal.sessionId)
-                            it[idempotencyKeyHash] = idempotencyHash
-                            it[encryptedTokenPayload] = encryptedPayload
-                            it[encryptionIv] = iv
-                            it[tokenExpiresAt] = java.time.Instant.now().plusSeconds(7200)
-                            it[replayExpiresAt] = java.time.Instant.now().plusSeconds(60)
-                            it[createdAt] = java.time.Instant.now()
-                        }
-                    }
-                    
-                    call.respond(HttpStatusCode.OK, mapOf(
-                        "encryptedToken" to encryptedPayload,
-                        "iv" to iv
-                    ))
+                    call.respond(HttpStatusCode.OK, mapOf("token" to rawToken))
                 } else {
-                    val errorMsg = result.exceptionOrNull()?.message ?: "Unknown error"
+                    val ex = result.exceptionOrNull()
+                    if (ex is com.jbcoder.meeting.domain.AppError) {
+                        throw ex
+                    }
+                    val errorMsg = ex?.message ?: "Unknown error"
                     if (errorMsg == "WAITING_ROOM") {
                         call.respond(HttpStatusCode.Accepted, mapOf("status" to "WAITING_ROOM"))
                     } else {

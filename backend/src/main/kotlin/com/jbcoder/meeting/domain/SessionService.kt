@@ -51,8 +51,8 @@ object SessionService {
             val refreshHash = CryptoService.sha256(refreshTokenRaw)
             
             val now = Instant.now()
-            val accessExpiresAt = now.plus(1, ChronoUnit.HOURS)
-            val refreshExpiresAt = now.plus(30, ChronoUnit.DAYS)
+            val accessExpiresAt = now.plus(ACCESS_TOKEN_TTL_MINUTES, ChronoUnit.MINUTES)
+            val refreshExpiresAt = now.plus(REFRESH_TOKEN_TTL_DAYS, ChronoUnit.DAYS)
             
             transaction {
                 DeviceSessionsTable.insert {
@@ -92,7 +92,9 @@ object SessionService {
         val now = Instant.now()
         
         return transaction {
-            val sessionRow = DeviceSessionsTable.select { DeviceSessionsTable.refreshTokenHash eq refreshHash }.singleOrNull()
+            val sessionRow = DeviceSessionsTable.select { DeviceSessionsTable.refreshTokenHash eq refreshHash }
+                .forUpdate()
+                .singleOrNull()
                 ?: throw AppError("INVALID_REFRESH_TOKEN", "Refresh token not found", HttpStatusCode.Unauthorized)
                 
             val revokedAt = sessionRow[DeviceSessionsTable.revokedAt]

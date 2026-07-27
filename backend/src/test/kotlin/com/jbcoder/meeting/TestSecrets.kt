@@ -18,6 +18,12 @@ object TestSecrets {
         Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes)
     }
 
+    val tokenDeliveryEncryptionKeyB64: String by lazy {
+        val randomBytes = ByteArray(32)
+        SecureRandom().nextBytes(randomBytes)
+        Base64.getEncoder().encodeToString(randomBytes)
+    }
+
     fun setupTestProperties() {
         val testDbName = System.getenv("POSTGRES_DB") ?: "livekit_meeting"
         System.setProperty("PORT", "8081")
@@ -33,6 +39,7 @@ object TestSecrets {
         System.setProperty("LIVEKIT_API_SECRET", liveKitApiSecret)
         System.setProperty("LIVEKIT_URL", "ws://127.0.0.1:7880")
         System.setProperty("JWT_SECRET", jwtSecret)
+        System.setProperty("TOKEN_DELIVERY_ENCRYPTION_KEY_B64", tokenDeliveryEncryptionKeyB64)
         System.setProperty("JWT_ISSUER", "livekit-meeting-app")
         System.setProperty("JWT_AUDIENCE", "livekit-meeting-app")
         System.setProperty("RATE_LIMIT", "10000")

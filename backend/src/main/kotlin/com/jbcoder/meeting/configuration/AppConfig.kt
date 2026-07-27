@@ -15,6 +15,7 @@ data class AppConfig(
     val livekitKey: String,
     val livekitSecret: String,
     val jwtSecret: String,
+    val tokenDeliveryEncryptionKeyB64: String,
     val flywayMigrateOnStart: Boolean
 ) {
     companion object {
@@ -55,6 +56,7 @@ data class AppConfig(
                 livekitKey = getEnv("LIVEKIT_API_KEY"),
                 livekitSecret = getEnv("LIVEKIT_API_SECRET"),
                 jwtSecret = getEnv("JWT_SECRET"),
+                tokenDeliveryEncryptionKeyB64 = getEnv("TOKEN_DELIVERY_ENCRYPTION_KEY_B64"),
                 flywayMigrateOnStart = (System.getProperty("FLYWAY_MIGRATE_ON_START") ?: System.getenv("FLYWAY_MIGRATE_ON_START") ?: env?.get("FLYWAY_MIGRATE_ON_START") ?: "true").toBoolean()
             )
         }

@@ -80,6 +80,7 @@ class DependencyRecoveryTest {
                 livekitKey = TestSecrets.liveKitApiKey,
                 livekitSecret = TestSecrets.liveKitApiSecret,
                 jwtSecret = TestSecrets.jwtSecret,
+                tokenDeliveryEncryptionKeyB64 = TestSecrets.tokenDeliveryEncryptionKeyB64,
                 flywayMigrateOnStart = true
             )
             

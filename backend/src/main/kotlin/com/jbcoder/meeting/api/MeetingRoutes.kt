@@ -11,6 +11,8 @@ import io.ktor.server.routing.route
 import kotlinx.serialization.Serializable
 import java.util.UUID
 import io.ktor.server.auth.authenticate
+import io.ktor.server.auth.principal
+import io.ktor.server.routing.get
 
 @Serializable
 data class CreateMeetingRequest(
@@ -253,6 +255,53 @@ fun Route.meetingRoutes() {
                 } catch (e: com.jbcoder.meeting.domain.IdempotencyException) {
                     call.respond(e.status, mapOf("error" to e.errorCode))
                 }
+            }
+        }
+        
+        // Mobile & General Meeting endpoints
+        authenticate("mobile-bearer") {
+            post("/{meetingCode}/leave") {
+                val meetingCode = call.parameters["meetingCode"] ?: return@post call.respond(HttpStatusCode.BadRequest)
+                val idempotencyKey = call.request.header("Idempotency-Key") ?: UUID.randomUUID().toString()
+                
+                val mobilePrincipal = call.principal<com.jbcoder.meeting.plugins.MobileSessionPrincipal>() ?: return@post call.respond(HttpStatusCode.Unauthorized)
+                val deviceSessionIdStr = mobilePrincipal.sessionId
+                
+                try {
+                    val (status, responseData) = com.jbcoder.meeting.domain.IdempotencyService.executeIdempotent<Map<String, String>>(
+                        key = idempotencyKey,
+                        actorScope = deviceSessionIdStr,
+                        meetingId = null,
+                        httpMethod = call.request.httpMethod.value,
+                        operation = call.request.path(),
+                        bodyContent = ""
+                    ) {
+                        val result = com.jbcoder.meeting.domain.ParticipantService.leaveMeeting(meetingCode, deviceSessionIdStr)
+                        if (result.isSuccess) {
+                            Pair(200, mapOf("status" to "LEFT"))
+                        } else {
+                            throw com.jbcoder.meeting.domain.AppError("LEAVE_FAILED", result.exceptionOrNull()?.message ?: "Internal Error", HttpStatusCode.BadRequest)
+                        }
+                    }
+                    call.respond(HttpStatusCode.fromValue(status), responseData)
+                } catch (e: com.jbcoder.meeting.domain.IdempotencyException) {
+                    call.respond(e.status, mapOf("error" to e.errorCode))
+                }
+            }
+        }
+        
+        authenticate("mobile-bearer", "auth-jwt") {
+            get("/{meetingCode}/status") {
+                val meetingCode = call.parameters["meetingCode"] ?: return@get call.respond(HttpStatusCode.BadRequest)
+                
+                val meeting = org.jetbrains.exposed.sql.transactions.transaction {
+                    com.jbcoder.meeting.persistence.MeetingRepository.findByPublicCode(meetingCode)
+                } ?: return@get call.respond(HttpStatusCode.NotFound)
+                
+                call.respond(HttpStatusCode.OK, mapOf(
+                    "status" to meeting.status.name,
+                    "title" to meeting.title
+                ))
             }
         }
     }
