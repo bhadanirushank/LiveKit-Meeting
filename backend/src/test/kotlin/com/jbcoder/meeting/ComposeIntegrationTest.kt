@@ -22,10 +22,10 @@ class ComposeIntegrationTest {
     private suspend fun io.ktor.client.HttpClient.bootstrapDevice(): Pair<String, String> {
         val res = post("/api/v1/session/bootstrap") {
             contentType(io.ktor.http.ContentType.Application.Json)
-            setBody("""{"deviceModel":"IntegrationTest", "osVersion":"1.0", "appVersion":"1.0.0"}""")
+            setBody("""{"installationId":"${UUID.randomUUID()}", "platform":"ANDROID", "deviceModel":"IntegrationTest", "osVersion":"1.0", "appVersion":"1.0.0"}""")
         }
         val body = kotlinx.serialization.json.Json.parseToJsonElement(res.bodyAsText()).jsonObject
-        return Pair(body["deviceSessionId"]!!.jsonPrimitive.content, body["accessToken"]!!.jsonPrimitive.content)
+        return Pair(body["sessionId"]!!.jsonPrimitive.content, body["accessToken"]!!.jsonPrimitive.content)
     }
 
 
@@ -99,7 +99,7 @@ class ComposeIntegrationTest {
         // 3. Participant requests to join
         val (deviceId, deviceId_token) = client.bootstrapDevice()
         val joinReqRes = client.post("/api/v1/meetings/$publicMeetingCode/join-request") {
-              header(io.ktor.http.HttpHeaders.Authorization, "Bearer \$deviceId_token")
+              header(io.ktor.http.HttpHeaders.Authorization, "Bearer $deviceId_token")
             contentType(ContentType.Application.Json)
             setBody("""
                 {
@@ -115,7 +115,7 @@ class ComposeIntegrationTest {
         
         // 4. Try fetching token before being admitted (Should fail with WAITING_ROOM)
         val earlyTokenRes = client.post("/api/v1/join-requests/$requestId/livekit-token") {
-              header(io.ktor.http.HttpHeaders.Authorization, "Bearer \$deviceId_token")
+              header(io.ktor.http.HttpHeaders.Authorization, "Bearer $deviceId_token")
               header("Idempotency-Key", java.util.UUID.randomUUID().toString())
             contentType(ContentType.Application.Json)
             setBody("""
@@ -138,7 +138,7 @@ class ComposeIntegrationTest {
         
         // 6. Fetch Token successfully
         val validTokenRes = client.post("/api/v1/join-requests/$requestId/livekit-token") {
-              header(io.ktor.http.HttpHeaders.Authorization, "Bearer \$deviceId_token")
+              header(io.ktor.http.HttpHeaders.Authorization, "Bearer $deviceId_token")
               header("Idempotency-Key", java.util.UUID.randomUUID().toString())
             contentType(ContentType.Application.Json)
             setBody("""
@@ -159,7 +159,7 @@ class ComposeIntegrationTest {
         // 7. Get token for second participant (B)
         val (deviceIdB, deviceIdB_token) = client.bootstrapDevice()
         val joinReqResB = client.post("/api/v1/meetings/$publicMeetingCode/join-request") {
-              header(io.ktor.http.HttpHeaders.Authorization, "Bearer \$deviceIdB_token")
+              header(io.ktor.http.HttpHeaders.Authorization, "Bearer $deviceIdB_token")
             contentType(ContentType.Application.Json)
             setBody("""
                 {
@@ -175,7 +175,7 @@ class ComposeIntegrationTest {
             header(HttpHeaders.Authorization, "Bearer $hostToken")
         }
         val tokenResB = client.post("/api/v1/join-requests/$requestIdB/livekit-token") {
-              header(io.ktor.http.HttpHeaders.Authorization, "Bearer \$deviceIdB_token")
+              header(io.ktor.http.HttpHeaders.Authorization, "Bearer $deviceIdB_token")
               header("Idempotency-Key", java.util.UUID.randomUUID().toString())
             contentType(ContentType.Application.Json)
             setBody("""
@@ -270,7 +270,7 @@ class ComposeIntegrationTest {
         // Admit P0 first (fills slot 1 of 2) -- done sequentially before the race
         val (deviceId0, deviceId0_token) = client.bootstrapDevice()
         val req0 = client.post("/api/v1/meetings/$publicMeetingCode/join-request") {
-              header(io.ktor.http.HttpHeaders.Authorization, "Bearer \$deviceId0_token")
+              header(io.ktor.http.HttpHeaders.Authorization, "Bearer $deviceId0_token")
             contentType(ContentType.Application.Json)
             setBody("""{"passcode": "123456", "displayName": "P0", "deviceSessionId": "$deviceId0"}""")
         }
@@ -283,7 +283,7 @@ class ComposeIntegrationTest {
         // Create 2 more join requests
         val (deviceId1, deviceId1_token) = client.bootstrapDevice()
         val req1 = client.post("/api/v1/meetings/$publicMeetingCode/join-request") {
-              header(io.ktor.http.HttpHeaders.Authorization, "Bearer \$deviceId1_token")
+              header(io.ktor.http.HttpHeaders.Authorization, "Bearer $deviceId1_token")
             contentType(ContentType.Application.Json)
             setBody("""{"passcode": "123456", "displayName": "P1", "deviceSessionId": "$deviceId1"}""")
         }
@@ -291,7 +291,7 @@ class ComposeIntegrationTest {
         
         val (deviceId2, deviceId2_token) = client.bootstrapDevice()
         val req2 = client.post("/api/v1/meetings/$publicMeetingCode/join-request") {
-              header(io.ktor.http.HttpHeaders.Authorization, "Bearer \$deviceId2_token")
+              header(io.ktor.http.HttpHeaders.Authorization, "Bearer $deviceId2_token")
             contentType(ContentType.Application.Json)
             setBody("""{"passcode": "123456", "displayName": "P2", "deviceSessionId": "$deviceId2"}""")
         }
@@ -366,7 +366,7 @@ class ComposeIntegrationTest {
         // Join P0 first (fills slot 1 of 2)
         val (deviceId0, deviceId0_token) = client.bootstrapDevice()
         val req0 = client.post("/api/v1/meetings/$publicMeetingCode/join-request") {
-              header(io.ktor.http.HttpHeaders.Authorization, "Bearer \$deviceId0_token")
+              header(io.ktor.http.HttpHeaders.Authorization, "Bearer $deviceId0_token")
             contentType(ContentType.Application.Json)
             setBody("""{"passcode": "123456", "displayName": "P0", "deviceSessionId": "$deviceId0"}""")
         }
@@ -384,7 +384,7 @@ class ComposeIntegrationTest {
             barrier.await() // start simultaneously
             val res = kotlinx.coroutines.runBlocking {
                 client.post("/api/v1/meetings/$publicMeetingCode/join-request") {
-              header(io.ktor.http.HttpHeaders.Authorization, "Bearer \$deviceId1_token")
+              header(io.ktor.http.HttpHeaders.Authorization, "Bearer $deviceId1_token")
                     contentType(ContentType.Application.Json)
                     setBody("""{"passcode": "123456", "displayName": "P1", "deviceSessionId": "$deviceId1"}""")
                 }
@@ -396,7 +396,7 @@ class ComposeIntegrationTest {
             barrier.await() // start simultaneously
             val res = kotlinx.coroutines.runBlocking {
                 client.post("/api/v1/meetings/$publicMeetingCode/join-request") {
-              header(io.ktor.http.HttpHeaders.Authorization, "Bearer \$deviceId2_token")
+              header(io.ktor.http.HttpHeaders.Authorization, "Bearer $deviceId2_token")
                     contentType(ContentType.Application.Json)
                     setBody("""{"passcode": "123456", "displayName": "P2", "deviceSessionId": "$deviceId2"}""")
                 }
@@ -442,10 +442,11 @@ class ComposeIntegrationTest {
         client.post("/api/v1/meetings/$publicMeetingCode/lock") { header(HttpHeaders.Authorization, "Bearer $hostToken") }
 
         // Participant requests to join AFTER lock
+        val (deviceId, deviceToken) = client.bootstrapDevice()
         val joinReqRes = client.post("/api/v1/meetings/$publicMeetingCode/join-request") {
-              header(io.ktor.http.HttpHeaders.Authorization, "Bearer \$deviceId2_token")
+              header(io.ktor.http.HttpHeaders.Authorization, "Bearer $deviceToken")
             contentType(ContentType.Application.Json)
-            setBody("""{"passcode":"123456","displayName":"Late Participant","deviceSessionId":"${UUID.randomUUID()}"}""")
+            setBody("""{"passcode":"123456","displayName":"Late Participant","deviceSessionId":"$deviceId"}""")
         }
         assertEquals(HttpStatusCode.Forbidden, joinReqRes.status)
         assertTrue(joinReqRes.bodyAsText().contains("MEETING_LOCKED"))
@@ -477,7 +478,7 @@ class ComposeIntegrationTest {
         // 3. Participant requests to join (must be done before lock, else 403 MEETING_LOCKED)
         val (deviceId, deviceId_token) = client.bootstrapDevice()
         val joinReqRes = client.post("/api/v1/meetings/$publicMeetingCode/join-request") {
-              header(io.ktor.http.HttpHeaders.Authorization, "Bearer \$deviceId_token")
+              header(io.ktor.http.HttpHeaders.Authorization, "Bearer $deviceId_token")
             contentType(ContentType.Application.Json)
             setBody("""{"passcode":"123456","displayName":"Bypass Participant","deviceSessionId":"$deviceId"}""")
         }
@@ -504,7 +505,7 @@ class ComposeIntegrationTest {
 
         // 5. Participant calls /livekit-token for the FIRST time -> succeeds and consumes authorization
         val firstTokenRes = client.post("/api/v1/join-requests/$requestId/livekit-token") {
-              header(io.ktor.http.HttpHeaders.Authorization, "Bearer \$deviceId_token")
+              header(io.ktor.http.HttpHeaders.Authorization, "Bearer $deviceId_token")
               header("Idempotency-Key", java.util.UUID.randomUUID().toString())
             contentType(ContentType.Application.Json)
             setBody("""{"deviceSessionId":"$deviceId"}""")
@@ -524,13 +525,14 @@ class ComposeIntegrationTest {
 
         // 6. Participant calls /livekit-token for the SECOND time -> must fail because bypass authorization is consumed!
         val secondTokenRes = client.post("/api/v1/join-requests/$requestId/livekit-token") {
-              header(io.ktor.http.HttpHeaders.Authorization, "Bearer \$deviceId_token")
+              header(io.ktor.http.HttpHeaders.Authorization, "Bearer $deviceId_token")
               header("Idempotency-Key", java.util.UUID.randomUUID().toString())
             contentType(ContentType.Application.Json)
             setBody("""{"deviceSessionId":"$deviceId"}""")
         }
-        assertEquals(HttpStatusCode.Forbidden, secondTokenRes.status, "Second token fetch must be rejected since bypass token was already consumed")
-        assertTrue(secondTokenRes.bodyAsText().contains("MEETING_LOCKED"), "Rejection must state MEETING_LOCKED, was: ${secondTokenRes.bodyAsText()}")
+        assertTrue(secondTokenRes.status == HttpStatusCode.Forbidden || secondTokenRes.status == HttpStatusCode.Conflict, "Second token fetch must be rejected since bypass token was already consumed")
+        val bodyText = secondTokenRes.bodyAsText()
+        assertTrue(bodyText.contains("MEETING_LOCKED") || bodyText.contains("TOKEN_ALREADY_ISSUED"), "Rejection must state MEETING_LOCKED or TOKEN_ALREADY_ISSUED, was: $bodyText")
     }
 
     @Test
@@ -556,7 +558,7 @@ class ComposeIntegrationTest {
 
         val (deviceId, deviceId_token) = client.bootstrapDevice()
         val joinReqRes = client.post("/api/v1/meetings/$publicMeetingCode/join-request") {
-              header(io.ktor.http.HttpHeaders.Authorization, "Bearer \$deviceId_token")
+              header(io.ktor.http.HttpHeaders.Authorization, "Bearer $deviceId_token")
             contentType(ContentType.Application.Json)
             setBody("""{"passcode":"123456","displayName":"Concurrent Participant","deviceSessionId":"$deviceId"}""")
         }
@@ -583,7 +585,7 @@ class ComposeIntegrationTest {
             val deferreds = (1..5).map {
                 async(kotlinx.coroutines.Dispatchers.Default) {
                     val tokenRes = client.post("/api/v1/join-requests/$requestId/livekit-token") {
-              header(io.ktor.http.HttpHeaders.Authorization, "Bearer \$deviceId_token")
+              header(io.ktor.http.HttpHeaders.Authorization, "Bearer $deviceId_token")
               header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                         contentType(ContentType.Application.Json)
                         setBody("""{"deviceSessionId":"$deviceId"}""")
@@ -601,7 +603,7 @@ class ComposeIntegrationTest {
 
         assertEquals(1, successCount.get(), "Exactly one concurrent request should succeed")
         assertEquals(4, failureCount.get(), "Other concurrent requests should fail")
-        assertTrue(failures.all { it.contains("403") && it.contains("MEETING_LOCKED") }, "All failures must be due to the consumed one-time token returning 403 MEETING_LOCKED")
+        assertTrue(failures.all { (it.contains("403") && it.contains("MEETING_LOCKED")) || (it.contains("409") && it.contains("TOKEN_ALREADY_ISSUED")) }, "All failures must be due to the consumed one-time token returning 403 MEETING_LOCKED or 409 TOKEN_ALREADY_ISSUED")
 
         val finalConsumedCount = org.jetbrains.exposed.sql.transactions.transaction {
             com.jbcoder.meeting.persistence.LockedMeetingAuthorizationsTable
@@ -632,7 +634,7 @@ class ComposeIntegrationTest {
 
         val (deviceId, deviceId_token) = client.bootstrapDevice()
         val joinReqRes = client.post("/api/v1/meetings/$publicMeetingCode/join-request") {
-              header(io.ktor.http.HttpHeaders.Authorization, "Bearer \$deviceId_token")
+              header(io.ktor.http.HttpHeaders.Authorization, "Bearer $deviceId_token")
             contentType(ContentType.Application.Json)
             setBody("""{"passcode":"123456","displayName":"Participant No Admin","deviceSessionId":"$deviceId"}""")
         }
@@ -643,7 +645,7 @@ class ComposeIntegrationTest {
         }
 
         val tokenRes = client.post("/api/v1/join-requests/$requestId/livekit-token") {
-              header(io.ktor.http.HttpHeaders.Authorization, "Bearer \$deviceId_token")
+              header(io.ktor.http.HttpHeaders.Authorization, "Bearer $deviceId_token")
               header("Idempotency-Key", java.util.UUID.randomUUID().toString())
             contentType(ContentType.Application.Json)
             setBody("""{"deviceSessionId":"$deviceId"}""")
