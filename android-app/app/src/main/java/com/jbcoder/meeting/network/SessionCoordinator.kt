@@ -8,7 +8,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import java.time.Instant
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.TimeZone
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -36,7 +38,7 @@ class SessionCoordinator @Inject constructor(
             
             // Load credentials
             var session = secureSessionStorage.loadSession()
-            val now = Instant.now().epochSecond
+            val now = System.currentTimeMillis() / 1000
 
             if (session == null || isExpired(session.refreshExpiry, now)) {
                 // No session or refresh token expired -> Bootstrap
@@ -80,7 +82,7 @@ class SessionCoordinator @Inject constructor(
     suspend fun performRefresh(): MobileSessionData? = refreshMutex.withLock {
         // Double-check if another thread already refreshed
         val currentSession = secureSessionStorage.loadSession()
-        val now = Instant.now().epochSecond
+        val now = System.currentTimeMillis() / 1000
         
         if (currentSession != null && !isExpired(currentSession.accessExpiry, now)) {
             return currentSession // Already refreshed
@@ -115,7 +117,7 @@ class SessionCoordinator @Inject constructor(
 
     suspend fun getAccessToken(): String? {
         val session = secureSessionStorage.loadSession() ?: return null
-        val now = Instant.now().epochSecond
+        val now = System.currentTimeMillis() / 1000
 
         if (isExpired(session.accessExpiry, now)) {
             val newSession = performRefresh() ?: return null
@@ -135,9 +137,13 @@ class SessionCoordinator @Inject constructor(
 
     private fun parseIso8601ToEpoch(iso8601: String): Long {
         return try {
-            java.time.Instant.parse(iso8601).epochSecond
+            val format = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
+            format.timeZone = TimeZone.getTimeZone("UTC")
+            val date = format.parse(iso8601)
+            if (date != null) date.time / 1000 else (System.currentTimeMillis() / 1000) + 3600
         } catch (e: Exception) {
-            Instant.now().epochSecond + 3600 // fallback 1h
+            // fallback if parsing fails, assume 1 hour valid
+            (System.currentTimeMillis() / 1000) + 3600
         }
     }
 }

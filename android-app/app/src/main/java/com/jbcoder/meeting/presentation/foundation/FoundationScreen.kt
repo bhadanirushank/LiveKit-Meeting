@@ -19,7 +19,15 @@ fun FoundationScreen(
     viewModel: FoundationViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
+    FoundationScreenContent(state = state, onReady = onReady, onRetry = { viewModel.retry() })
+}
 
+@Composable
+fun FoundationScreenContent(
+    state: FoundationState,
+    onReady: () -> Unit,
+    onRetry: () -> Unit
+) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         when (state) {
             is FoundationState.Loading -> {
@@ -32,8 +40,16 @@ fun FoundationScreen(
                 val error = (state as FoundationState.Error).message
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("Initialization Failed: $error")
-                    Button(onClick = { viewModel.retry() }) {
+                    Button(onClick = onRetry) {
                         Text("Retry")
+                    }
+                }
+            }
+            is FoundationState.Offline -> {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Backend is offline or unreachable")
+                    Button(onClick = onRetry) {
+                        Text("Retry Connection")
                     }
                 }
             }

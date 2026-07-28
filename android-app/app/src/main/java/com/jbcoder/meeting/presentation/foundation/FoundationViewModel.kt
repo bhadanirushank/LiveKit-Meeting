@@ -13,11 +13,12 @@ sealed class FoundationState {
     object Loading : FoundationState()
     data class Error(val message: String) : FoundationState()
     object Ready : FoundationState()
+    object Offline : FoundationState()
 }
 
 @HiltViewModel
 class FoundationViewModel @Inject constructor(
-    // Dependencies will be injected here
+    private val sessionCoordinator: com.jbcoder.meeting.network.SessionCoordinator
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<FoundationState>(FoundationState.Loading)
@@ -29,10 +30,17 @@ class FoundationViewModel @Inject constructor(
 
     private fun initialize() {
         viewModelScope.launch {
-            _state.value = FoundationState.Loading
-            // TODO: Call bootstrap/initialization logic
-            // For now just simulate success
-            _state.value = FoundationState.Ready
+            sessionCoordinator.sessionState.collect { netState ->
+                when (netState) {
+                    com.jbcoder.meeting.network.SessionState.INITIALIZING -> _state.value = FoundationState.Loading
+                    com.jbcoder.meeting.network.SessionState.READY -> _state.value = FoundationState.Ready
+                    com.jbcoder.meeting.network.SessionState.ERROR -> _state.value = FoundationState.Error("Session failed to initialize")
+                    com.jbcoder.meeting.network.SessionState.OFFLINE -> _state.value = FoundationState.Offline
+                }
+            }
+        }
+        viewModelScope.launch {
+            sessionCoordinator.initializeSession()
         }
     }
 

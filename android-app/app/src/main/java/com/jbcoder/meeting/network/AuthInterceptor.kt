@@ -4,9 +4,12 @@ import kotlinx.coroutines.runBlocking
 import okhttp3.Interceptor
 import okhttp3.Response
 import javax.inject.Inject
+import javax.inject.Singleton
+import dagger.Lazy
 
+@Singleton
 class AuthInterceptor @Inject constructor(
-    private val sessionCoordinator: SessionCoordinator
+    private val sessionCoordinator: Lazy<SessionCoordinator>
 ) : Interceptor {
 
     override fun intercept(chain: Interceptor.Chain): Response {
@@ -20,7 +23,7 @@ class AuthInterceptor @Inject constructor(
 
         // 2. Refresh: Attach rtk_ (Refresh Token) only
         if (urlPath.endsWith("/api/v1/session/refresh")) {
-            val rtk = runBlocking { sessionCoordinator.getRefreshToken() }
+            val rtk = runBlocking { sessionCoordinator.get().getRefreshToken() }
             if (rtk != null) {
                 val newRequest = originalRequest.newBuilder()
                     .header("Authorization", "Bearer $rtk")
@@ -31,7 +34,7 @@ class AuthInterceptor @Inject constructor(
         }
 
         // 3. Other protected endpoints: Attach atk_ (Access Token)
-        val atk = runBlocking { sessionCoordinator.getAccessToken() }
+        val atk = runBlocking { sessionCoordinator.get().getAccessToken() }
         if (atk != null) {
             val newRequest = originalRequest.newBuilder()
                 .header("Authorization", "Bearer $atk")
