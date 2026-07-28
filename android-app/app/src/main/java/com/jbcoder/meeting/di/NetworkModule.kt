@@ -37,7 +37,7 @@ object NetworkModule {
             level = if (BuildConfig.DEBUG) {
                 // Redact headers explicitly
                 redactHeader("Authorization")
-                HttpLoggingInterceptor.Level.BODY
+                HttpLoggingInterceptor.Level.BASIC
             } else {
                 HttpLoggingInterceptor.Level.NONE
             }

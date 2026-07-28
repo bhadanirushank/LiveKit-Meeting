@@ -63,15 +63,15 @@ class SessionCoordinator @Inject constructor(
         secureSessionStorage.clearSession()
         val installationId = installationIdProvider.getInstallationId()
         
-        val response = apiService.bootstrapSession(SessionBootstrapRequest(installationId))
+        val response = apiService.bootstrapSession(SessionBootstrapRequest(installationId, "android"))
         if (response.isSuccessful && response.body() != null) {
             val body = response.body()!!
             val newSession = MobileSessionData(
-                sessionId = body.mobileSessionId,
+                sessionId = body.sessionId,
                 accessToken = body.accessToken,
                 refreshToken = body.refreshToken,
-                accessExpiry = parseIso8601ToEpoch(body.accessExpiry),
-                refreshExpiry = parseIso8601ToEpoch(body.refreshExpiry)
+                accessExpiry = body.accessTokenExpiresAt?.let { parseIso8601ToEpoch(it) } ?: ((System.currentTimeMillis() / 1000) + 3600),
+                refreshExpiry = body.refreshTokenExpiresAt?.let { parseIso8601ToEpoch(it) } ?: ((System.currentTimeMillis() / 1000) + (86400 * 30))
             )
             secureSessionStorage.saveSession(newSession)
             return newSession
@@ -96,11 +96,11 @@ class SessionCoordinator @Inject constructor(
             if (response.isSuccessful && response.body() != null) {
                 val body = response.body()!!
                 val newSession = MobileSessionData(
-                    sessionId = body.mobileSessionId,
+                    sessionId = body.sessionId,
                     accessToken = body.accessToken,
                     refreshToken = body.refreshToken,
-                    accessExpiry = parseIso8601ToEpoch(body.accessExpiry),
-                    refreshExpiry = parseIso8601ToEpoch(body.refreshExpiry)
+                    accessExpiry = body.accessTokenExpiresAt?.let { parseIso8601ToEpoch(it) } ?: ((System.currentTimeMillis() / 1000) + 3600),
+                    refreshExpiry = body.refreshTokenExpiresAt?.let { parseIso8601ToEpoch(it) } ?: ((System.currentTimeMillis() / 1000) + (86400 * 30))
                 )
                 secureSessionStorage.saveSession(newSession)
                 _sessionState.value = SessionState.READY

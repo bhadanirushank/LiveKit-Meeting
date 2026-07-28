@@ -91,6 +91,7 @@ services:
       LIVEKIT_URL: "ws://livekit:7880"
       LIVEKIT_API_KEY: "${LIVEKIT_API_KEY:-devkey}"
       LIVEKIT_API_SECRET: "${LIVEKIT_API_SECRET:-livekit_secret_placeholder_at_least_32_chars}"
+      TOKEN_DELIVERY_ENCRYPTION_KEY_B64: "${TOKEN_DELIVERY_ENCRYPTION_KEY_B64:-Cg/9/Q1rYQ+n2wY4t1f6E0T5oKxM1R5f0O6W8X9b7kU=}"
       JWT_SECRET: "${JWT_SECRET:-jwt_secret_placeholder}"
       FLYWAY_MIGRATE_ON_START: "true"
     depends_on:

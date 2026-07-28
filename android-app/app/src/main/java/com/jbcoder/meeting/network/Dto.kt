@@ -4,16 +4,17 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class SessionBootstrapRequest(
-    val deviceSessionId: String
+    val installationId: String,
+    val platform: String
 )
 
 @Serializable
 data class SessionResponse(
-    val mobileSessionId: String,
+    val sessionId: String,
     val accessToken: String,
     val refreshToken: String,
-    val accessExpiry: String,
-    val refreshExpiry: String
+    val accessTokenExpiresAt: String? = null,
+    val refreshTokenExpiresAt: String? = null
 )
 
 @Serializable
