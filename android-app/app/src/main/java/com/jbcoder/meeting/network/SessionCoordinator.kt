@@ -130,6 +130,10 @@ class SessionCoordinator @Inject constructor(
         return secureSessionStorage.loadSession()?.refreshToken
     }
 
+    suspend fun getDeviceSessionId(): String? {
+        return secureSessionStorage.loadSession()?.sessionId
+    }
+
     private fun isExpired(expiryTimeEpoch: Long, now: Long): Boolean {
         // Add 10s skew
         return (expiryTimeEpoch - 10) < now

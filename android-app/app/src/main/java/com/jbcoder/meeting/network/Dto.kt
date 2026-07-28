@@ -25,3 +25,37 @@ data class ProblemDetails(
     val detail: String? = null,
     val instance: String? = null
 )
+
+@Serializable
+data class CreateMeetingRequest(
+    val title: String,
+    val passcode: String? = null,
+    val waitingRoomEnabled: Boolean = true,
+    val joinBeforeHostEnabled: Boolean = false,
+    val maximumParticipants: Int = 100,
+    val idempotencyKey: String
+)
+
+@Serializable
+data class CreateMeetingResponse(
+    val publicMeetingCode: String,
+    val hostSecret: String,
+    val livekitRoomName: String,
+    val title: String,
+    val waitingRoomEnabled: Boolean,
+    val joinBeforeHostEnabled: Boolean,
+    val maximumParticipants: Int
+)
+
+@Serializable
+data class JoinRequestDto(
+    val displayName: String,
+    val deviceSessionId: String,
+    val passcode: String? = null
+)
+
+@Serializable
+data class JoinRequestResponse(
+    val requestId: String,
+    val status: String
+)

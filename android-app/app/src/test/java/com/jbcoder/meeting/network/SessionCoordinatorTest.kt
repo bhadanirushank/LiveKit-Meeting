@@ -46,6 +46,10 @@ class SessionCoordinatorTest {
                 )
             )
         }
+
+        override suspend fun submitJoinRequest(meetingCode: String, request: JoinRequestDto): Response<JoinRequestResponse> {
+            return Response.success(JoinRequestResponse("dummy-req", "PENDING"))
+        }
     }
 
     // Dummy mock to bypass constructor error

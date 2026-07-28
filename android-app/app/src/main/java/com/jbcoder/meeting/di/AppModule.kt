@@ -23,6 +23,12 @@ abstract class AppModule {
         impl: DataStoreInstallationIdProvider
     ): InstallationIdProvider
 
+    @Binds
+    @Singleton
+    abstract fun bindMeetingRepository(
+        impl: com.jbcoder.meeting.data.meeting.MeetingRepositoryImpl
+    ): com.jbcoder.meeting.data.meeting.MeetingRepository
+
     companion object {
         @Provides
         @Singleton
