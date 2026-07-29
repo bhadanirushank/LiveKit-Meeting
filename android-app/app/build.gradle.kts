@@ -24,6 +24,7 @@ android {
         debug {
             isMinifyEnabled = false
             buildConfigField("String", "BASE_URL", "\"http://192.168.29.172:8080\"")
+            buildConfigField("String", "LIVEKIT_URL", "\"ws://192.168.29.172:7880\"")
         }
         release {
             isMinifyEnabled = true
@@ -33,6 +34,7 @@ android {
             )
             // Empty placeholder to fail if missing
             buildConfigField("String", "BASE_URL", "\"\"")
+            buildConfigField("String", "LIVEKIT_URL", "\"\"")
         }
     }
     compileOptions {
@@ -61,6 +63,7 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+    implementation(libs.androidx.material.icons.extended)
     implementation(libs.androidx.navigation.compose)
 
     // Networking

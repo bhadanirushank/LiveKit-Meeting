@@ -69,7 +69,7 @@ fun MeetingNavHost() {
                     }
                 },
                 onNavigateLiveRoom = {
-                    navController.navigate("liveRoomPlaceholder") {
+                    navController.navigate("roomPreJoin") {
                         popUpTo("home")
                     }
                 }
@@ -83,14 +83,28 @@ fun MeetingNavHost() {
                     }
                 },
                 onNavigateLiveRoom = {
-                    navController.navigate("liveRoomPlaceholder") {
+                    navController.navigate("roomPreJoin") {
                         popUpTo("home")
                     }
                 }
             )
         }
-        composable("liveRoomPlaceholder") {
-            com.jbcoder.meeting.feature.phase6chandoff.Phase6CHandoffPlaceholder(
+        composable("roomPreJoin") {
+            com.jbcoder.meeting.feature.room.RoomPreJoinScreen(
+                onNavigateLiveRoom = {
+                    navController.navigate("liveRoom") {
+                        popUpTo("roomPreJoin") { inclusive = true }
+                    }
+                },
+                onNavigateHome = {
+                    navController.navigate("home") {
+                        popUpTo("home") { inclusive = true }
+                    }
+                }
+            )
+        }
+        composable("liveRoom") {
+            com.jbcoder.meeting.feature.room.LiveRoomScreen(
                 onNavigateHome = {
                     navController.navigate("home") {
                         popUpTo("home") { inclusive = true }
