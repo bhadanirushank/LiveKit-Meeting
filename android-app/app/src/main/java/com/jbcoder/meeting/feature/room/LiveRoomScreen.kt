@@ -151,6 +151,18 @@ fun LiveRoomScreen(
                         }
                     }
 
+                    if (uiState.lastError != null) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color(0xFFFF9800))
+                                .padding(8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(uiState.lastError ?: "", color = Color.White)
+                        }
+                    }
+
                     Box(modifier = Modifier.weight(1f).padding(8.dp)) {
                         ParticipantGrid(
                             room = uiState.room, 

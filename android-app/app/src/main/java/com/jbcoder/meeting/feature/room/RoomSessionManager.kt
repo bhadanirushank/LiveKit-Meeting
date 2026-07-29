@@ -45,7 +45,8 @@ data class RoomUiState(
     val isMicEnabled: Boolean = false,
     val isCameraEnabled: Boolean = false,
     val hasAudioPermission: Boolean = false,
-    val hasCameraPermission: Boolean = false
+    val hasCameraPermission: Boolean = false,
+    val lastError: String? = null
 )
 
 @Singleton
@@ -145,9 +146,10 @@ class RoomSessionManager @Inject constructor(
             val current = _uiState.value.isMicEnabled
             try {
                 localParticipant.setMicrophoneEnabled(!current)
-                _uiState.update { it.copy(isMicEnabled = !current) }
+                _uiState.update { it.copy(isMicEnabled = !current, lastError = null) }
+                updateParticipants()
             } catch (e: Exception) {
-                // Ignore for now
+                _uiState.update { it.copy(lastError = "Mic Error: ${e.message}") }
             }
         }
     }
@@ -159,9 +161,10 @@ class RoomSessionManager @Inject constructor(
             val current = _uiState.value.isCameraEnabled
             try {
                 localParticipant.setCameraEnabled(!current)
-                _uiState.update { it.copy(isCameraEnabled = !current) }
+                _uiState.update { it.copy(isCameraEnabled = !current, lastError = null) }
+                updateParticipants()
             } catch (e: Exception) {
-                // Ignore
+                _uiState.update { it.copy(lastError = "Camera Error: ${e.message} \n ${android.util.Log.getStackTraceString(e)}") }
             }
         }
     }
@@ -172,12 +175,10 @@ class RoomSessionManager @Inject constructor(
             try {
                 val localParticipant = r.localParticipant
                 val track = localParticipant.videoTrackPublications.firstOrNull()?.first?.track as? LocalVideoTrack
-                track?.options?.let { options ->
-                    val newPosition = if (options.position == CameraPosition.FRONT) CameraPosition.BACK else CameraPosition.FRONT
-                    track.restartTrack(options.copy(position = newPosition))
-                }
+                track?.switchCamera()
             } catch (e: Exception) {
                 android.util.Log.e("RoomSessionManager", "Failed to switch camera", e)
+                _uiState.update { it.copy(lastError = "Switch Camera Error: ${e.message}") }
             }
         }
     }
