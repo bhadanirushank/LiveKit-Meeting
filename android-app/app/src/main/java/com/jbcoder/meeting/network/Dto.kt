@@ -59,3 +59,58 @@ data class JoinRequestResponse(
     val requestId: String,
     val status: String
 )
+
+@Serializable
+data class HostExchangeRequest(
+    val publicMeetingCode: String,
+    val hostSecret: String
+)
+
+@Serializable
+data class HostExchangeResponse(
+    val accessToken: String,
+    val refreshToken: String
+)
+
+@Serializable
+data class PendingJoinRequest(
+    val id: String,
+    val displayName: String,
+    val requestedAt: String
+)
+
+@Serializable
+data class WaitingRoomResponse(
+    val requests: List<PendingJoinRequest>
+)
+
+@Serializable
+data class AdmitResponse(
+    val status: String
+)
+
+@Serializable
+data class RejectRequest(
+    val reason: String? = null
+)
+
+@Serializable
+data class RejectResponse(
+    val status: String
+)
+
+@Serializable
+data class JoinRequestStatusResponse(
+    val status: String
+)
+
+@Serializable
+data class LiveKitTokenResponse(
+    val token: String? = null,
+    val status: String? = null
+)
+
+@Serializable
+data class StartMeetingResponse(
+    val status: String
+)

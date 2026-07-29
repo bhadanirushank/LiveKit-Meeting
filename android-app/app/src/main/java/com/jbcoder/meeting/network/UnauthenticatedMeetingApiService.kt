@@ -11,4 +11,11 @@ interface UnauthenticatedMeetingApiService {
         @Header("X-Installation-Id") installationId: String,
         @Body request: CreateMeetingRequest
     ): Response<CreateMeetingResponse>
+
+    @POST("/api/v1/host-sessions/exchange")
+    suspend fun exchangeHostSession(
+        @Header("X-Installation-Id") installationId: String,
+        @Header("Idempotency-Key") idempotencyKey: String,
+        @Body request: HostExchangeRequest
+    ): Response<HostExchangeResponse>
 }

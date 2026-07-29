@@ -115,4 +115,51 @@ object NetworkModule {
     ): com.jbcoder.meeting.network.UnauthenticatedMeetingApiService {
         return retrofit.create(com.jbcoder.meeting.network.UnauthenticatedMeetingApiService::class.java)
     }
+
+    @Provides
+    @Singleton
+    @javax.inject.Named("HostAuthenticated")
+    fun provideHostOkHttpClient(
+        hostAuthInterceptor: com.jbcoder.meeting.network.HostAuthInterceptor
+    ): OkHttpClient {
+        val loggingInterceptor = HttpLoggingInterceptor().apply {
+            level = if (BuildConfig.DEBUG) {
+                redactHeader("Authorization")
+                HttpLoggingInterceptor.Level.BASIC
+            } else {
+                HttpLoggingInterceptor.Level.NONE
+            }
+        }
+
+        return OkHttpClient.Builder()
+            .addInterceptor(loggingInterceptor)
+            .addInterceptor(hostAuthInterceptor)
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(10, TimeUnit.SECONDS)
+            .writeTimeout(10, TimeUnit.SECONDS)
+            .build()
+    }
+
+    @Provides
+    @Singleton
+    @javax.inject.Named("HostAuthenticated")
+    fun provideHostRetrofit(
+        @javax.inject.Named("HostAuthenticated") okHttpClient: OkHttpClient,
+        json: Json
+    ): Retrofit {
+        val contentType = "application/json".toMediaType()
+        return Retrofit.Builder()
+            .baseUrl(BuildConfig.BASE_URL)
+            .client(okHttpClient)
+            .addConverterFactory(json.asConverterFactory(contentType))
+            .build()
+    }
+
+    @Provides
+    @Singleton
+    fun provideHostMeetingApiService(
+        @javax.inject.Named("HostAuthenticated") retrofit: Retrofit
+    ): com.jbcoder.meeting.network.HostMeetingApiService {
+        return retrofit.create(com.jbcoder.meeting.network.HostMeetingApiService::class.java)
+    }
 }

@@ -12,16 +12,16 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
-import com.jbcoder.meeting.data.meeting.MeetingEntryHandoff
-import com.jbcoder.meeting.data.meeting.MeetingEntryHandoffStore
+import com.jbcoder.meeting.data.meeting.RoomConnectionHandoff
+import com.jbcoder.meeting.data.meeting.RoomConnectionHandoffStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 
 @HiltViewModel
 class Phase6CHandoffViewModel @Inject constructor(
-    private val handoffStore: MeetingEntryHandoffStore
+    private val handoffStore: RoomConnectionHandoffStore
 ) : ViewModel() {
-    val handoffState = handoffStore.currentHandoff
+    val handoffState = handoffStore.handoff
     
     fun onLeave() {
         handoffStore.clear()
@@ -45,34 +45,35 @@ fun Phase6CHandoffPlaceholder(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             if (handoff == null) {
-                Text("Error: Session lost (Process death). Returning home.")
+                Text("Error: LiveKit connection handoff missing. Returning home.")
                 Button(onClick = { viewModel.onLeave(); onNavigateHome() }) {
                     Text("Go Home")
                 }
             } else {
                 Text(
-                    text = "Phase 6C Handoff",
+                    text = "Phase 6D Placeholder (Live Room)",
                     style = MaterialTheme.typography.headlineMedium,
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
 
                 val code = when (val h = handoff) {
-                    is MeetingEntryHandoff.HostCreated -> h.publicMeetingCode
-                    is MeetingEntryHandoff.ParticipantRequested -> h.publicMeetingCode
+                    is RoomConnectionHandoff.HostReady -> h.publicMeetingCode
+                    is RoomConnectionHandoff.ParticipantReady -> h.publicMeetingCode
                     else -> ""
                 }
 
                 Text("Meeting Code: $code", style = MaterialTheme.typography.bodyLarge)
                 
                 when (val h = handoff) {
-                    is MeetingEntryHandoff.HostCreated -> {
+                    is RoomConnectionHandoff.HostReady -> {
                         Text("Role: Host", style = MaterialTheme.typography.bodyLarge)
-                        Text("Host Secret exists in memory", style = MaterialTheme.typography.labelSmall)
+                        Text("LiveKit Room: ${h.livekitRoomName}", style = MaterialTheme.typography.labelSmall)
+                        Text("Token Length: ${h.livekitToken.length}", style = MaterialTheme.typography.labelSmall)
                     }
-                    is MeetingEntryHandoff.ParticipantRequested -> {
+                    is RoomConnectionHandoff.ParticipantReady -> {
                         Text("Role: Participant", style = MaterialTheme.typography.bodyLarge)
-                        Text("Request ID: ${h.requestId}", style = MaterialTheme.typography.labelSmall)
-                        Text("Status: ${h.requestStatus}", style = MaterialTheme.typography.labelSmall)
+                        Text("Display Name: ${h.displayName}", style = MaterialTheme.typography.labelSmall)
+                        Text("Token Length: ${h.livekitToken.length}", style = MaterialTheme.typography.labelSmall)
                     }
                     else -> {}
                 }
@@ -101,7 +102,7 @@ fun Phase6CHandoffPlaceholder(
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Leave Entry Flow")
+                    Text("Leave Meeting")
                 }
             }
         }

@@ -15,4 +15,11 @@ sealed class MeetingError(override val message: String) : Exception(message) {
     object ServiceUnavailable : MeetingError("Service unavailable")
     object ContractMismatch : MeetingError("Contract mismatch")
     data class UnexpectedServerResponse(val code: String) : MeetingError("Unexpected error: $code")
+    object HostUnauthorized : MeetingError("Host session unauthorized")
+    object MeetingEnded : MeetingError("Meeting ended")
+    object JoinRequestNotFound : MeetingError("Join request not found")
+    object JoinRequestExpired : MeetingError("Join request expired")
+    object ParticipantRejected : MeetingError("Participant rejected")
+    object AlreadyAdmitted : MeetingError("Already admitted")
+    object AlreadyRejected : MeetingError("Already rejected")
 }

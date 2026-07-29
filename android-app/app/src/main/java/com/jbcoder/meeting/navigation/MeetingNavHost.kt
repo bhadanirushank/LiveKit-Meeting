@@ -33,17 +33,64 @@ fun MeetingNavHost() {
         composable("createMeeting") {
             CreateMeetingScreen(
                 onNavigateBack = { navController.popBackStack() },
-                onSuccess = { navController.navigate("phase6cHandoff") { popUpTo("home") } }
+                onSuccess = { navController.navigate("waitingRoomRouter") { popUpTo("home") } }
             )
         }
         composable("joinMeeting") {
             JoinMeetingScreen(
                 onNavigateBack = { navController.popBackStack() },
-                onSuccess = { navController.navigate("phase6cHandoff") { popUpTo("home") } }
+                onSuccess = { navController.navigate("waitingRoomRouter") { popUpTo("home") } }
             )
         }
-        composable("phase6cHandoff") {
-            Phase6CHandoffPlaceholder(
+        composable("waitingRoomRouter") {
+            com.jbcoder.meeting.feature.waitingroom.WaitingRoomRouterScreen(
+                onNavigateToHost = {
+                    navController.navigate("hostWaitingRoom") {
+                        popUpTo("home")
+                    }
+                },
+                onNavigateToParticipant = {
+                    navController.navigate("participantWaitingRoom") {
+                        popUpTo("home")
+                    }
+                },
+                onNavigateHome = {
+                    navController.navigate("home") {
+                        popUpTo("home") { inclusive = true }
+                    }
+                }
+            )
+        }
+        composable("hostWaitingRoom") {
+            com.jbcoder.meeting.feature.waitingroom.HostWaitingRoomScreen(
+                onNavigateHome = {
+                    navController.navigate("home") {
+                        popUpTo("home") { inclusive = true }
+                    }
+                },
+                onNavigateLiveRoom = {
+                    navController.navigate("liveRoomPlaceholder") {
+                        popUpTo("home")
+                    }
+                }
+            )
+        }
+        composable("participantWaitingRoom") {
+            com.jbcoder.meeting.feature.waitingroom.ParticipantWaitingRoomScreen(
+                onNavigateHome = {
+                    navController.navigate("home") {
+                        popUpTo("home") { inclusive = true }
+                    }
+                },
+                onNavigateLiveRoom = {
+                    navController.navigate("liveRoomPlaceholder") {
+                        popUpTo("home")
+                    }
+                }
+            )
+        }
+        composable("liveRoomPlaceholder") {
+            com.jbcoder.meeting.feature.phase6chandoff.Phase6CHandoffPlaceholder(
                 onNavigateHome = {
                     navController.navigate("home") {
                         popUpTo("home") { inclusive = true }

@@ -17,4 +17,15 @@ interface MeetingApiService {
         @retrofit2.http.Path("meetingCode") meetingCode: String,
         @Body request: JoinRequestDto
     ): Response<JoinRequestResponse>
+
+    @retrofit2.http.GET("/api/v1/join-requests/{requestId}")
+    suspend fun getJoinRequestStatus(
+        @retrofit2.http.Path("requestId") requestId: String
+    ): Response<JoinRequestStatusResponse>
+
+    @POST("/api/v1/join-requests/{requestId}/livekit-token")
+    suspend fun getParticipantLiveKitToken(
+        @retrofit2.http.Path("requestId") requestId: String,
+        @retrofit2.http.Header("Idempotency-Key") idempotencyKey: String
+    ): Response<LiveKitTokenResponse>
 }
