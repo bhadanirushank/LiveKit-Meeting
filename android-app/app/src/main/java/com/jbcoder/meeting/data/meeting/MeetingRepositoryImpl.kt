@@ -40,6 +40,7 @@ class MeetingRepositoryImpl @Inject constructor(
                 }
             }
         } catch (e: IOException) {
+            android.util.Log.e("MeetingRepository", "Network error during createMeeting", e)
             Result.failure(MeetingError.Offline)
         } catch (e: Exception) {
             Result.failure(MeetingError.UnexpectedServerResponse(e.message ?: "Unknown error"))
@@ -70,6 +71,7 @@ class MeetingRepositoryImpl @Inject constructor(
         } catch (e: IOException) {
             Result.failure(MeetingError.Offline)
         } catch (e: Exception) {
+            android.util.Log.e("MeetingRepository", "Error during submitJoinRequest", e)
             Result.failure(MeetingError.UnexpectedServerResponse(e.message ?: "Unknown error"))
         }
     }
