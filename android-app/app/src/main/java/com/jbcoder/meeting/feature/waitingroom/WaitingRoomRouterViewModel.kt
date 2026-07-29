@@ -17,7 +17,7 @@ class WaitingRoomRouterViewModel @Inject constructor(
 
     fun consumeHandoff(): MeetingEntryHandoff? {
         if (cachedHandoff == null) {
-            cachedHandoff = handoffStore.consumeAndClear()
+            cachedHandoff = handoffStore.peek()
         }
         return cachedHandoff
     }

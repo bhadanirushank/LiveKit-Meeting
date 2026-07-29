@@ -40,6 +40,10 @@ class MeetingEntryHandoffStore @Inject constructor() {
         return value
     }
     
+    fun peek(): MeetingEntryHandoff? {
+        return _currentHandoff.value
+    }
+    
     fun clear() {
         _currentHandoff.value = null
     }
