@@ -169,11 +169,15 @@ class RoomSessionManager @Inject constructor(
     fun switchCamera() {
         val r = room ?: return
         scope.launch {
-            val localParticipant = r.localParticipant
-            val track = localParticipant.videoTrackPublications.firstOrNull()?.second as? LocalVideoTrack
-            track?.options?.let { options ->
-                val newPosition = if (options.position == CameraPosition.FRONT) CameraPosition.BACK else CameraPosition.FRONT
-                track.restartTrack(options.copy(position = newPosition))
+            try {
+                val localParticipant = r.localParticipant
+                val track = localParticipant.videoTrackPublications.firstOrNull()?.first?.track as? LocalVideoTrack
+                track?.options?.let { options ->
+                    val newPosition = if (options.position == CameraPosition.FRONT) CameraPosition.BACK else CameraPosition.FRONT
+                    track.restartTrack(options.copy(position = newPosition))
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("RoomSessionManager", "Failed to switch camera", e)
             }
         }
     }

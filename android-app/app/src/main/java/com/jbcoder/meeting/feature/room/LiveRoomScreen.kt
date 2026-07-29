@@ -45,6 +45,25 @@ fun LiveRoomScreen(
     val hostState by hostViewModel.state.collectAsState()
     var showLeaveConfirmation by remember { mutableStateOf(false) }
     var showHostControls by remember { mutableStateOf(false) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    val audioPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission(),
+        onResult = { granted ->
+            if (granted) {
+                viewModel.toggleMic()
+            }
+        }
+    )
+
+    val cameraPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission(),
+        onResult = { granted ->
+            if (granted) {
+                viewModel.toggleCamera()
+            }
+        }
+    )
 
     LaunchedEffect(uiState.meetingCode) {
         if (uiState.meetingCode.isNotBlank()) {
@@ -143,8 +162,20 @@ fun LiveRoomScreen(
                     RoomControls(
                         isMicEnabled = uiState.isMicEnabled,
                         isCameraEnabled = uiState.isCameraEnabled,
-                        onToggleMic = { viewModel.toggleMic() },
-                        onToggleCamera = { viewModel.toggleCamera() },
+                        onToggleMic = { 
+                            if (!uiState.isMicEnabled && androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                                audioPermissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
+                            } else {
+                                viewModel.toggleMic() 
+                            }
+                        },
+                        onToggleCamera = { 
+                            if (!uiState.isCameraEnabled && androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.CAMERA) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                                cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
+                            } else {
+                                viewModel.toggleCamera() 
+                            }
+                        },
                         onSwitchCamera = { viewModel.switchCamera() },
                         onLeave = { showLeaveConfirmation = true },
                         onHostControlsClick = { showHostControls = true }
@@ -294,7 +325,7 @@ fun ParticipantTile(
     val audioTracks = participant.audioTrackPublications
     val isSpeaking = participant.isSpeaking
     
-    val videoTrack = videoTracks.firstOrNull { it.first.subscribed }?.second as? VideoTrack
+    val videoTrack = videoTracks.firstOrNull()?.first?.track as? VideoTrack
     val isAudioMuted = audioTracks.firstOrNull()?.first?.muted ?: true
 
     Box(
