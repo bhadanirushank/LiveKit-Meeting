@@ -77,8 +77,30 @@ fun LiveRoomScreen(
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         when (val state = uiState.roomState) {
             is RoomState.Disconnected -> {
-                LaunchedEffect(Unit) {
-                    onNavigateHome()
+                // If we get here and there's no room, it might be the initial state.
+                // Wait to navigate home until explicitly disconnected.
+                if (uiState.room != null) {
+                    LaunchedEffect(Unit) {
+                        onNavigateHome()
+                    }
+                }
+            }
+            is RoomState.FatalError -> {
+                Column(
+                    modifier = Modifier.align(Alignment.Center),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(Icons.Default.Warning, contentDescription = "Error", tint = Color.Red, modifier = Modifier.size(48.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Connection Failed:", color = Color.White)
+                    Text(state.message, color = Color.Red)
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Button(onClick = { 
+                        viewModel.disconnect()
+                        onNavigateHome()
+                    }) {
+                        Text("Go Back")
+                    }
                 }
             }
             is RoomState.Connecting -> {

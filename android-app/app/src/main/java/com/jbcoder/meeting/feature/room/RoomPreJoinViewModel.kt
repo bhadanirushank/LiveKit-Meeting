@@ -89,20 +89,21 @@ class RoomPreJoinViewModel @Inject constructor(
             return
         }
         
+        // Give session manager the permission state and intended media state
+        roomSessionManager.prepare(hasAudioPerm, hasCameraPerm)
+        roomSessionManager.setInitialMediaState(_isMicEnabled.value, _isCameraEnabled.value)
+        
+        // Initiate connection
+        val code = (uiState.value as? RoomPreJoinState.Ready)?.meetingCode ?: ""
+        
         viewModelScope.launch {
-            // Give session manager the permission state and intended media state
-            roomSessionManager.prepare(hasAudioPerm, hasCameraPerm)
-            roomSessionManager.setInitialMediaState(_isMicEnabled.value, _isCameraEnabled.value)
-            
-            // Initiate connection
-            val code = (uiState.value as? RoomPreJoinState.Ready)?.meetingCode ?: ""
             roomSessionManager.connect(url, token, code)
-            
-            // Clear local token ref to avoid memory lingering longer than needed
-            livekitToken = null
-            
-            // Move to Live Room UI (which will show "Connecting..." state)
-            onStarted()
         }
+        
+        // Clear local token ref to avoid memory lingering longer than needed
+        livekitToken = null
+        
+        // Move to Live Room UI (which will show "Connecting..." state)
+        onStarted()
     }
 }

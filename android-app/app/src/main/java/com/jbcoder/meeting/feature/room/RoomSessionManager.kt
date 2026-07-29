@@ -120,7 +120,7 @@ class RoomSessionManager @Inject constructor(
             
         } catch (e: Exception) {
             _uiState.update { it.copy(roomState = RoomState.FatalError(e.message ?: "Failed to connect")) }
-            cleanup()
+            cleanup(preserveError = true)
         } finally {
             isConnectInProgress = false
         }
@@ -233,7 +233,8 @@ class RoomSessionManager @Inject constructor(
         cleanup()
     }
 
-    private fun cleanup() {
+    private fun cleanup(preserveError: Boolean = false) {
+        val currentError = if (preserveError) _uiState.value.roomState else RoomState.Disconnected
         room?.disconnect()
         eventJob?.cancel()
         eventJob = null
@@ -241,6 +242,9 @@ class RoomSessionManager @Inject constructor(
         room = null
         currentLiveKitToken = null
         currentUrl = null
-        _uiState.value = RoomUiState() // Reset
+        
+        _uiState.update { 
+            RoomUiState(roomState = currentError) 
+        }
     }
 }
