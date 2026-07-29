@@ -91,11 +91,7 @@ fun Route.hostSessionRoutes() {
                             it[com.jbcoder.meeting.persistence.ParticipantSessionsTable.meetingId] = meetingId
                             it[displayName] = "Host"
                             it[livekitIdentity] = "host-$newId"
-                            val devStr = sessionRow[com.jbcoder.meeting.persistence.MeetingAuthorizationSessionsTable.deviceSessionId]
-                            if (devStr != null) {
-                                it[deviceSessionId] = java.util.UUID.fromString(devStr)
-                            }
-                            
+                            // Host does not have an anonymous device session, so leave deviceSessionId null
                             it[state] = com.jbcoder.meeting.domain.ParticipantState.JOINED.name
                             it[role] = "HOST"
                             
