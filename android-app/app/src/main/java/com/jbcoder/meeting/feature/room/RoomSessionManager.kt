@@ -211,6 +211,8 @@ class RoomSessionManager @Inject constructor(
             is RoomEvent.TrackUnsubscribed,
             is RoomEvent.TrackMuted,
             is RoomEvent.TrackUnmuted,
+            is RoomEvent.LocalTrackPublished,
+            is RoomEvent.LocalTrackUnpublished,
             is RoomEvent.ActiveSpeakersChanged -> {
                 updateParticipants() // Simple refresh
             }

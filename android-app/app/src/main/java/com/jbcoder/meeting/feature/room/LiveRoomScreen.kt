@@ -333,12 +333,12 @@ fun ParticipantTile(
 ) {
     // Read properties directly. 
     // Composable recomposes when updateTrigger changes.
-    val videoTracks = participant.videoTrackPublications
-    val audioTracks = participant.audioTrackPublications
-    val isSpeaking = participant.isSpeaking
+    val videoTracks = remember(updateTrigger, participant) { participant.videoTrackPublications }
+    val audioTracks = remember(updateTrigger, participant) { participant.audioTrackPublications }
+    val isSpeaking = remember(updateTrigger, participant) { participant.isSpeaking }
     
-    val videoTrack = videoTracks.firstOrNull()?.first?.track as? VideoTrack
-    val isAudioMuted = audioTracks.firstOrNull()?.first?.muted ?: true
+    val videoTrack = remember(updateTrigger, videoTracks) { videoTracks.firstOrNull()?.first?.track as? VideoTrack }
+    val isAudioMuted = remember(updateTrigger, audioTracks) { audioTracks.firstOrNull()?.first?.muted ?: true }
 
     Box(
         modifier = Modifier
