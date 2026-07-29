@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.VideocamOff
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -37,10 +38,19 @@ import io.livekit.android.renderer.TextureViewRenderer
 @Composable
 fun LiveRoomScreen(
     viewModel: LiveRoomViewModel = hiltViewModel(),
+    hostViewModel: HostModerationViewModel = hiltViewModel(),
     onNavigateHome: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val hostState by hostViewModel.state.collectAsState()
     var showLeaveConfirmation by remember { mutableStateOf(false) }
+    var showHostControls by remember { mutableStateOf(false) }
+
+    LaunchedEffect(uiState.meetingCode) {
+        if (uiState.meetingCode.isNotBlank()) {
+            hostViewModel.setMeetingCode(uiState.meetingCode)
+        }
+    }
 
     if (showLeaveConfirmation) {
         AlertDialog(
@@ -114,8 +124,67 @@ fun LiveRoomScreen(
                         onToggleMic = { viewModel.toggleMic() },
                         onToggleCamera = { viewModel.toggleCamera() },
                         onSwitchCamera = { viewModel.switchCamera() },
-                        onLeave = { showLeaveConfirmation = true }
+                        onLeave = { showLeaveConfirmation = true },
+                        onHostControlsClick = { showHostControls = true }
                     )
+                }
+                
+                if (showHostControls) {
+                    HostControlsSheet(
+                        state = hostState,
+                        onLockMeeting = { hostViewModel.lockMeeting() },
+                        onUnlockMeeting = { hostViewModel.unlockMeeting() },
+                        onEndMeetingClick = { hostViewModel.showConfirmation(ConfirmationDialogState.EndMeeting()) },
+                        onMuteParticipant = { hostViewModel.muteParticipant(it) },
+                        onAskToUnmute = { hostViewModel.askToUnmute(it) },
+                        onDisablePublishing = { hostViewModel.disablePublishing(it) },
+                        onRestorePublishing = { hostViewModel.restorePublishing(it) },
+                        onRemoveParticipantClick = { id, name -> hostViewModel.showConfirmation(ConfirmationDialogState.RemoveParticipant(id, name)) },
+                        onPromoteClick = { id, name -> hostViewModel.showConfirmation(ConfirmationDialogState.PromoteParticipant(id, name)) },
+                        onDemoteClick = { id, name -> hostViewModel.showConfirmation(ConfirmationDialogState.DemoteParticipant(id, name)) },
+                        onDismiss = { showHostControls = false }
+                    )
+                }
+                
+                hostState.activeConfirmation?.let { conf ->
+                    when (conf) {
+                        is ConfirmationDialogState.EndMeeting -> {
+                            AlertDialog(
+                                onDismissRequest = { hostViewModel.dismissConfirmation() },
+                                title = { Text("End Meeting for All?") },
+                                text = { Text("Are you sure you want to end the meeting for everyone?") },
+                                confirmButton = { Button(onClick = { hostViewModel.endMeetingConfirmed() }) { Text("End Meeting") } },
+                                dismissButton = { TextButton(onClick = { hostViewModel.dismissConfirmation() }) { Text("Cancel") } }
+                            )
+                        }
+                        is ConfirmationDialogState.RemoveParticipant -> {
+                            AlertDialog(
+                                onDismissRequest = { hostViewModel.dismissConfirmation() },
+                                title = { Text("Remove ${conf.name}?") },
+                                text = { Text("Are you sure you want to remove ${conf.name} from the meeting? They will not be able to rejoin.") },
+                                confirmButton = { Button(onClick = { hostViewModel.removeParticipantConfirmed(conf.participantId) }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Remove") } },
+                                dismissButton = { TextButton(onClick = { hostViewModel.dismissConfirmation() }) { Text("Cancel") } }
+                            )
+                        }
+                        is ConfirmationDialogState.PromoteParticipant -> {
+                            AlertDialog(
+                                onDismissRequest = { hostViewModel.dismissConfirmation() },
+                                title = { Text("Promote ${conf.name}?") },
+                                text = { Text("Promote ${conf.name} to Co-host?") },
+                                confirmButton = { Button(onClick = { hostViewModel.promoteCohostConfirmed(conf.participantId) }) { Text("Promote") } },
+                                dismissButton = { TextButton(onClick = { hostViewModel.dismissConfirmation() }) { Text("Cancel") } }
+                            )
+                        }
+                        is ConfirmationDialogState.DemoteParticipant -> {
+                            AlertDialog(
+                                onDismissRequest = { hostViewModel.dismissConfirmation() },
+                                title = { Text("Demote ${conf.name}?") },
+                                text = { Text("Demote ${conf.name} to regular participant?") },
+                                confirmButton = { Button(onClick = { hostViewModel.demoteCohostConfirmed(conf.participantId) }) { Text("Demote") } },
+                                dismissButton = { TextButton(onClick = { hostViewModel.dismissConfirmation() }) { Text("Cancel") } }
+                            )
+                        }
+                    }
                 }
             }
             is RoomState.FatalError -> {
@@ -272,7 +341,8 @@ fun RoomControls(
     onToggleMic: () -> Unit,
     onToggleCamera: () -> Unit,
     onSwitchCamera: () -> Unit,
-    onLeave: () -> Unit
+    onLeave: () -> Unit,
+    onHostControlsClick: () -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -304,6 +374,14 @@ fun RoomControls(
                     tint = Color.White
                 )
             }
+        }
+        
+        IconButton(onClick = onHostControlsClick) {
+            Icon(
+                imageVector = androidx.compose.material.icons.Icons.Default.MoreVert,
+                contentDescription = "Host Controls",
+                tint = Color.White
+            )
         }
         
         Button(

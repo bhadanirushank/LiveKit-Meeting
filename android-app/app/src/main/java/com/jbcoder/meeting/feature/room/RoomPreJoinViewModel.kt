@@ -95,7 +95,8 @@ class RoomPreJoinViewModel @Inject constructor(
             roomSessionManager.setInitialMediaState(_isMicEnabled.value, _isCameraEnabled.value)
             
             // Initiate connection
-            roomSessionManager.connect(url, token)
+            val code = (uiState.value as? RoomPreJoinState.Ready)?.meetingCode ?: ""
+            roomSessionManager.connect(url, token, code)
             
             // Clear local token ref to avoid memory lingering longer than needed
             livekitToken = null

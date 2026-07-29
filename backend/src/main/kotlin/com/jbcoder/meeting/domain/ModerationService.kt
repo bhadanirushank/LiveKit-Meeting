@@ -295,6 +295,34 @@ object ModerationService {
                 it[createdAt] = Instant.now()
             }
 
+            // Propagate role to LiveKit metadata
+            try {
+                val config = com.jbcoder.meeting.configuration.AppConfig.load()
+                val client = io.livekit.server.RoomServiceClient.createClient(config.livekitApiUrl, config.livekitKey, config.livekitSecret)
+                
+                val livekitIdentity = participant[ParticipantSessionsTable.livekitIdentity]
+                val displayName = participant[ParticipantSessionsTable.displayName]
+                val publishRestricted = participant[ParticipantSessionsTable.publishRestricted]
+                val metadataJson = """{"id":"${participantId.toString()}","role":"${newRole.name}"}"""
+                
+                // Get existing participant to preserve permissions except what we might change
+                val permission = LivekitModels.ParticipantPermission.newBuilder()
+                    .setCanPublish(!publishRestricted)
+                    .setCanSubscribe(true)
+                    .setCanPublishData(!publishRestricted)
+                    .build()
+
+                client.updateParticipant(
+                    MeetingRepository.findById(meetingId)!!.livekitRoomName,
+                    livekitIdentity,
+                    metadataJson,
+                    displayName,
+                    permission
+                ).execute()
+            } catch (e: Exception) {
+                logger.error("Failed to propagate role change to LiveKit for $participantId", e)
+            }
+
             Result.success(Unit)
         }
     }

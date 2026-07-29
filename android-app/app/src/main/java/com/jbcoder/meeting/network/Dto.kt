@@ -114,3 +114,18 @@ data class LiveKitTokenResponse(
 data class StartMeetingResponse(
     val status: String
 )
+
+@Serializable
+data class LockResponse(
+    val locked: Boolean
+)
+
+@Serializable
+data class MeetingStatusResponse(
+    val status: String
+)
+
+@Serializable
+data class ParticipantStatusResponse(
+    val status: String
+)

@@ -38,6 +38,7 @@ sealed interface RoomState {
 
 data class RoomUiState(
     val room: Room? = null,
+    val meetingCode: String = "",
     val updateCounter: Int = 0,
     val roomState: RoomState = RoomState.Disconnected,
     val participants: List<Participant> = emptyList(),
@@ -77,7 +78,7 @@ class RoomSessionManager @Inject constructor(
         }
     }
 
-    suspend fun connect(url: String, token: String) {
+    suspend fun connect(url: String, token: String, meetingCode: String) {
         if (room != null || isConnectInProgress) return
         isConnectInProgress = true
         currentLiveKitToken = token
@@ -97,7 +98,8 @@ class RoomSessionManager @Inject constructor(
             _uiState.update { 
                 it.copy(
                     roomState = RoomState.Connecting,
-                    room = newRoom
+                    room = newRoom,
+                    meetingCode = meetingCode
                 ) 
             }
             

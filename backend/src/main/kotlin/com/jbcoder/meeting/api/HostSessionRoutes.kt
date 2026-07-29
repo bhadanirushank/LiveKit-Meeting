@@ -111,12 +111,16 @@ fun Route.hostSessionRoutes() {
                         .single()
                 }
                 
+                val participantIdString = participantId.toString()
+                val roleName = participantRow[com.jbcoder.meeting.persistence.ParticipantSessionsTable.role]
+                val metadataJson = """{"id":"$participantIdString","role":"$roleName"}"""
+
                 val token = com.jbcoder.meeting.domain.LiveKitTokenService.createToken(
                     roomName = meeting.livekitRoomName,
                     participantIdentity = participantRow[com.jbcoder.meeting.persistence.ParticipantSessionsTable.livekitIdentity],
                     participantName = participantRow[com.jbcoder.meeting.persistence.ParticipantSessionsTable.displayName],
-                    metadata = participantId.toString(),
-                    role = participantRow[com.jbcoder.meeting.persistence.ParticipantSessionsTable.role],
+                    metadata = metadataJson,
+                    role = roleName,
                     publishRestricted = participantRow[com.jbcoder.meeting.persistence.ParticipantSessionsTable.publishRestricted],
                     screenShareAllowed = participantRow[com.jbcoder.meeting.persistence.ParticipantSessionsTable.screenShareAllowed]
                 )

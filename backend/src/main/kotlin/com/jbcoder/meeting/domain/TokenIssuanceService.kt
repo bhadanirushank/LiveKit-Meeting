@@ -177,11 +177,13 @@ object TokenIssuanceService {
             val publishRestricted = participantRow[ParticipantSessionsTable.publishRestricted]
             val screenShareAllowed = participantRow[ParticipantSessionsTable.screenShareAllowed]
             
+            val metadataJson = """{"id":"${participantId.toString()}","role":"$roleName"}"""
+            
             val rawToken = LiveKitTokenService.createToken(
                 roomName = meeting.livekitRoomName,
                 participantIdentity = livekitIdentity,
                 participantName = displayName,
-                metadata = participantId.toString(),
+                metadata = metadataJson,
                 role = roleName,
                 publishRestricted = publishRestricted,
                 screenShareAllowed = screenShareAllowed
