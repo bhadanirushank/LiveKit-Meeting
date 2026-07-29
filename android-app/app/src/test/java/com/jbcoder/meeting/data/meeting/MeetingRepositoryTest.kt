@@ -122,4 +122,24 @@ class MeetingRepositoryTest {
         val error = result.exceptionOrNull() as MeetingError.RateLimited
         assertEquals(120, error.retryAfterSeconds)
     }
+
+    @Test
+    fun `CreateMeeting409IdempotencyConflictTest`() = runBlocking {
+        val errorBody = "{\"type\":\"INVALID_IDEMPOTENCY_KEY\",\"title\":\"Idempotency key reused\"}".toResponseBody("application/json".toMediaType())
+        createResponseToReturn = Response.error(409, errorBody)
+        val request = CreateMeetingRequest(title = "Title", idempotencyKey = "key")
+        val result = repository.createMeeting(request, "id")
+        assertTrue(result.isFailure)
+        assertEquals(MeetingError.IdempotencyConflict, result.exceptionOrNull())
+    }
+
+    @Test
+    fun `CreateMeetingGeneric409Test`() = runBlocking {
+        val errorBody = "{\"type\":\"SOME_OTHER_CONFLICT\",\"title\":\"Conflict\"}".toResponseBody("application/json".toMediaType())
+        createResponseToReturn = Response.error(409, errorBody)
+        val request = CreateMeetingRequest(title = "Title", idempotencyKey = "key")
+        val result = repository.createMeeting(request, "id")
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull() is MeetingError.UnexpectedServerResponse)
+    }
 }

@@ -47,6 +47,8 @@ class CreateMeetingViewModel @Inject constructor(
 
     private var idempotencyKey = UUID.randomUUID().toString()
 
+    private var lastAttemptedRequest: CreateMeetingRequest? = null
+
     fun updateTitle(title: String) {
         _formState.update { it.copy(title = title) }
     }
@@ -74,6 +76,10 @@ class CreateMeetingViewModel @Inject constructor(
     }
 
     fun submit() {
+        if (_uiState.value is CreateMeetingUiState.Loading) {
+            return
+        }
+
         val form = _formState.value
         val title = form.title.trim()
         if (title.isBlank() || title.length > 200) {
@@ -87,7 +93,7 @@ class CreateMeetingViewModel @Inject constructor(
             return
         }
 
-        val pass = if (form.passcode.isNotBlank()) form.passcode else null
+        val pass = if (form.passcode.isNotBlank()) form.passcode.trim() else null
         if (pass != null && pass.length !in 4..20) {
             _uiState.value = CreateMeetingUiState.Error("Passcode must be between 4 and 20 characters")
             return
@@ -95,17 +101,31 @@ class CreateMeetingViewModel @Inject constructor(
 
         _uiState.value = CreateMeetingUiState.Loading
 
+        val currentPayload = CreateMeetingRequest(
+            title = title,
+            passcode = pass,
+            waitingRoomEnabled = form.waitingRoomEnabled,
+            joinBeforeHostEnabled = form.joinBeforeHostEnabled,
+            maximumParticipants = maxParticipants,
+            idempotencyKey = ""
+        )
+
+        val lastReq = lastAttemptedRequest
+        if (lastReq != null) {
+            if (lastReq.title != currentPayload.title ||
+                lastReq.passcode != currentPayload.passcode ||
+                lastReq.waitingRoomEnabled != currentPayload.waitingRoomEnabled ||
+                lastReq.joinBeforeHostEnabled != currentPayload.joinBeforeHostEnabled ||
+                lastReq.maximumParticipants != currentPayload.maximumParticipants) {
+                idempotencyKey = UUID.randomUUID().toString()
+            }
+        }
+
+        val request = currentPayload.copy(idempotencyKey = idempotencyKey)
+        lastAttemptedRequest = request
+
         viewModelScope.launch {
             val installationId = installationIdProvider.getInstallationId()
-            val request = CreateMeetingRequest(
-                title = title,
-                passcode = pass,
-                waitingRoomEnabled = form.waitingRoomEnabled,
-                joinBeforeHostEnabled = form.joinBeforeHostEnabled,
-                maximumParticipants = maxParticipants,
-                idempotencyKey = idempotencyKey
-            )
-
             val result = repository.createMeeting(request, installationId)
 
             if (result.isSuccess) {
@@ -123,15 +143,22 @@ class CreateMeetingViewModel @Inject constructor(
                 )
                 // Generate a new idempotency key so next time they visit it's fresh
                 idempotencyKey = UUID.randomUUID().toString()
+                lastAttemptedRequest = null
                 _uiState.value = CreateMeetingUiState.Success
             } else {
                 val ex = result.exceptionOrNull()
                 val msg = when (ex) {
                     is MeetingError.CreateFailed -> ex.detail
                     is MeetingError.Offline -> "You are offline."
+                    is MeetingError.IdempotencyConflict -> "Meeting details changed after the previous attempt. Please try again."
                     is MeetingError.UnexpectedServerResponse -> "Server error: ${ex.message}"
                     else -> "Unknown error"
                 }
+                
+                if (ex is MeetingError.IdempotencyConflict) {
+                    idempotencyKey = UUID.randomUUID().toString()
+                }
+                
                 _uiState.value = CreateMeetingUiState.Error(msg)
             }
         }

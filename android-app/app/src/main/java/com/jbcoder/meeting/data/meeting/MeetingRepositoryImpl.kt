@@ -31,6 +31,8 @@ class MeetingRepositoryImpl @Inject constructor(
                 val problem = parseProblemDetails(response)
                 if (response.code() == 400 && problem?.type == "CREATE_FAILED") {
                     Result.failure(MeetingError.CreateFailed(problem.detail ?: "Create failed"))
+                } else if (response.code() == 409 && (problem?.type == "INVALID_IDEMPOTENCY_KEY" || problem?.type == "CONCURRENT_REQUEST_PROCESSING")) {
+                    Result.failure(MeetingError.IdempotencyConflict)
                 } else if (response.code() >= 500) {
                     Result.failure(MeetingError.UnexpectedServerResponse(response.code().toString()))
                 } else {

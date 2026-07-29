@@ -2,6 +2,7 @@ package com.jbcoder.meeting.data.meeting
 
 sealed class MeetingError(override val message: String) : Exception(message) {
     data class CreateFailed(val detail: String) : MeetingError(detail)
+    object IdempotencyConflict : MeetingError("Idempotency conflict")
     object MeetingNotFound : MeetingError("Meeting not found")
     object MeetingLocked : MeetingError("Meeting locked")
     object MeetingCapacityReached : MeetingError("Capacity reached")

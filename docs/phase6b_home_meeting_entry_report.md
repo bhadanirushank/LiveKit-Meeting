@@ -13,6 +13,7 @@ This phase implemented the primary entry points for the LiveKit Meeting mobile a
 - **Create Meeting (`POST /api/v1/meetings`)**:
   - Unauthenticated route without `Authorization` header.
   - Supplied `X-Installation-Id` securely sourced from `InstallationIdProvider`.
+  - Fixed a `409 Conflict` (INVALID_IDEMPOTENCY_KEY) issue. The exact root cause was that changing request properties after a timeout or recoverable server error reused the same idempotency key. A new idempotency key is now generated for every materially changed attempt, while maintaining the same key for unknown-outcome safety.
   - Responds with `201 Created` containing the `publicMeetingCode` and `hostSecret`.
   - Driven by the new `UnauthenticatedMeetingApiService`.
 - **Join Meeting (`POST /api/v1/meetings/{code}/join-request`)**:
@@ -28,6 +29,7 @@ This phase implemented the primary entry points for the LiveKit Meeting mobile a
 
 ## UI, Accessibility, and Security
 - Implemented accessible Compose screens (`HomeScreen`, `CreateMeetingScreen`, `JoinMeetingScreen`) supporting 200% font scale and TalkBack labels.
+- Fixed an Android-specific network security issue blocking `127.0.0.1` cleartext traffic on physical devices. IP addresses are not supported in `<domain-config>`, causing it to fall back to the disabled `<base-config>`. Updated the debug-only `network_security_config.xml` `<base-config>` to explicitly allow cleartext, ensuring the local Ktor backend via `adb reverse` remains reachable without compromising release HTTPS restrictions.
 - Verified that **no camera or microphone permission prompts occur**. Only declared `android.hardware.camera`, `android.hardware.camera.autofocus`, and `android.hardware.microphone` with `android:required="false"` to satisfy lint requirements for `android.permission.CAMERA` which was previously authorized.
 - Checked production APKs. `Release` builds exclude HTTP logging and no sensitive credentials (`hostSecret`, passcodes, room tokens, `atk_`, `rtk_`) leak into logcat. 
 

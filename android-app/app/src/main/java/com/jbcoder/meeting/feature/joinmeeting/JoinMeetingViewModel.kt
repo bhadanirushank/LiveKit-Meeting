@@ -75,7 +75,7 @@ class JoinMeetingViewModel @Inject constructor(
             return
         }
 
-        val pass = if (form.passcode.isNotBlank()) form.passcode else null
+        val pass = if (form.passcode.isNotBlank()) form.passcode.trim() else null
         if (pass != null && pass.length !in 4..20) {
             _uiState.value = JoinMeetingUiState.Error("Passcode must be between 4 and 20 characters")
             return
