@@ -247,7 +247,7 @@ fun ParticipantGrid(
         verticalArrangement = Arrangement.spacedBy(8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        items(participants, key = { it.sid }) { participant ->
+        items(participants, key = { it.sid?.value ?: it.identity?.value ?: it.hashCode().toString() }) { participant ->
             ParticipantTile(
                 room = room, 
                 participant = participant, 
