@@ -50,6 +50,22 @@ class SessionCoordinatorTest {
         override suspend fun submitJoinRequest(meetingCode: String, request: JoinRequestDto): Response<JoinRequestResponse> {
             return Response.success(JoinRequestResponse("dummy-req", "PENDING"))
         }
+
+        override suspend fun getJoinRequestStatus(requestId: String): Response<JoinRequestStatusResponse> {
+            return Response.success(JoinRequestStatusResponse("APPROVED"))
+        }
+
+        override suspend fun getParticipantLiveKitToken(requestId: String, idempotencyKey: String): Response<LiveKitTokenResponse> {
+            return Response.success(LiveKitTokenResponse("lk-token-dummy"))
+        }
+
+        override suspend fun getMeetingStatus(meetingCode: String): Response<MeetingStatusResponse> {
+            return Response.success(MeetingStatusResponse("ACTIVE"))
+        }
+
+        override suspend fun leaveMeeting(meetingCode: String, idempotencyKey: String): Response<Unit> {
+            return Response.success(Unit)
+        }
     }
 
     // Dummy mock to bypass constructor error

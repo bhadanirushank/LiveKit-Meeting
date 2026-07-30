@@ -14,7 +14,7 @@ import com.jbcoder.meeting.feature.phase6chandoff.Phase6CHandoffPlaceholder
 fun MeetingNavHost() {
     val navController = rememberNavController()
 
-    NavHost(navController = navController, startDestination = "foundation") {
+    NavHost(navController = navController, startDestination = "home") {
         composable("foundation") {
             FoundationScreen(
                 onReady = {

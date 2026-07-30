@@ -1,8 +1,14 @@
 package com.jbcoder.meeting.feature.home
 
+import androidx.compose.ui.tooling.preview.Preview
+import com.jbcoder.meeting.presentation.theme.MeetingTheme
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -11,8 +17,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.jbcoder.meeting.core.designsystem.MeetingPrimaryButton
-import com.jbcoder.meeting.core.designsystem.MeetingSecondaryButton
+import com.jbcoder.meeting.feature.home.components.HomeHeadline
+import com.jbcoder.meeting.feature.home.components.MeetingStatusIndicator
+import com.jbcoder.meeting.feature.home.components.MinimalMeetingMark
+import com.jbcoder.meeting.feature.home.components.PrimaryMeetingButton
+import com.jbcoder.meeting.feature.home.components.SecondaryMeetingButton
 
 @Composable
 fun HomeScreen(
@@ -20,49 +29,154 @@ fun HomeScreen(
     onNavigateToJoin: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
-    val isConnected by viewModel.isConnected.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
+    
+    HomeScreenContent(
+        uiState = uiState,
+        onNavigateToCreate = onNavigateToCreate,
+        onNavigateToJoin = onNavigateToJoin,
+        onRetry = viewModel::retry
+    )
+}
+
+@Composable
+fun HomeScreenContent(
+    uiState: HomeUiState,
+    onNavigateToCreate: () -> Unit,
+    onNavigateToJoin: () -> Unit,
+    onRetry: () -> Unit
+) {
+    val isReady = uiState is HomeUiState.Ready
 
     Surface(modifier = Modifier.fillMaxSize()) {
-        Column(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(24.dp),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
+                .background(MaterialTheme.colorScheme.background)
+                .safeDrawingPadding()
         ) {
-            Text(
-                text = "LiveKit Meetings",
-                style = MaterialTheme.typography.headlineLarge,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-            
-            Text(
-                text = "Secure ephemeral meetings.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 32.dp)
-            )
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = maxHeight)
+                    .verticalScroll(rememberScrollState())
+                    .padding(24.dp)
+            ) {
+                // 1. App Header
+                MinimalMeetingMark()
 
-            MeetingPrimaryButton(
-                text = "Create Meeting",
-                onClick = onNavigateToCreate,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
+                Spacer(modifier = Modifier.height(48.dp))
 
-            MeetingSecondaryButton(
-                text = "Join Meeting",
-                onClick = onNavigateToJoin,
-                modifier = Modifier.padding(bottom = 32.dp)
-            )
+                // 2. Main Headline and Supporting Text
+                HomeHeadline()
 
-            val statusText = if (isConnected) "Connected" else "Offline"
-            val statusColor = if (isConnected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                Spacer(modifier = Modifier.height(48.dp))
 
-            Text(
-                text = statusText,
-                style = MaterialTheme.typography.labelSmall,
-                color = statusColor
-            )
+                // 3. Actions
+                PrimaryMeetingButton(
+                    text = "Create Meeting",
+                    onClick = onNavigateToCreate,
+                    enabled = isReady
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
+
+                SecondaryMeetingButton(
+                    text = "Join with Code",
+                    onClick = onNavigateToJoin,
+                    enabled = isReady
+                )
+
+                // 4. Flexible Space to push status to bottom
+                Spacer(modifier = Modifier.weight(1f))
+                Spacer(modifier = Modifier.height(48.dp))
+
+                // 5. Connection Status and Retry
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    MeetingStatusIndicator(status = uiState)
+
+                    if (uiState is HomeUiState.Offline || uiState is HomeUiState.Error) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        TextButton(onClick = onRetry) {
+                            Text("Retry Connection")
+                        }
+                    }
+                }
+            }
         }
     }
 }
+
+// --- Previews ---
+
+
+
+
+@Preview(showBackground = true, name = "Light Ready")
+@Composable
+fun HomeScreenLightPreview() {
+    MeetingTheme(darkTheme = false) {
+        HomeScreenContent(
+            uiState = HomeUiState.Ready,
+            onNavigateToCreate = {},
+            onNavigateToJoin = {},
+            onRetry = {}
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "Dark Ready")
+@Composable
+fun HomeScreenDarkPreview() {
+    MeetingTheme(darkTheme = true) {
+        HomeScreenContent(
+            uiState = HomeUiState.Ready,
+            onNavigateToCreate = {},
+            onNavigateToJoin = {},
+            onRetry = {}
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "Initializing")
+@Composable
+fun HomeScreenInitializingPreview() {
+    MeetingTheme {
+        HomeScreenContent(
+            uiState = HomeUiState.Initializing,
+            onNavigateToCreate = {},
+            onNavigateToJoin = {},
+            onRetry = {}
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "Offline", widthDp = 320)
+@Composable
+fun HomeScreenOfflineNarrowPreview() {
+    MeetingTheme {
+        HomeScreenContent(
+            uiState = HomeUiState.Offline,
+            onNavigateToCreate = {},
+            onNavigateToJoin = {},
+            onRetry = {}
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "Large Font", fontScale = 2f)
+@Composable
+fun HomeScreenLargeFontPreview() {
+    MeetingTheme {
+        HomeScreenContent(
+            uiState = HomeUiState.Ready,
+            onNavigateToCreate = {},
+            onNavigateToJoin = {},
+            onRetry = {}
+        )
+    }
+}
+
