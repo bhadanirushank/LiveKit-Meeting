@@ -38,6 +38,11 @@ fun ParticipantWaitingRoomScreen(
                 is ParticipantWaitingRoomState.Initializing -> {
                     CircularProgressIndicator()
                 }
+                is ParticipantWaitingRoomState.HandoffLost -> {
+                    LaunchedEffect(Unit) {
+                        onNavigateHome()
+                    }
+                }
                 is ParticipantWaitingRoomState.Waiting -> {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         CircularProgressIndicator(modifier = Modifier.padding(bottom = 16.dp))

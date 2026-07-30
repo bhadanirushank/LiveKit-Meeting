@@ -252,4 +252,33 @@ class RoomSessionManager @Inject constructor(
             RoomUiState(roomState = currentError) 
         }
     }
+
+    private var wasCameraEnabledBeforeBackground = false
+
+    fun onAppBackgrounded() {
+        val r = room ?: return
+        scope.launch {
+            wasCameraEnabledBeforeBackground = _uiState.value.isCameraEnabled
+            if (wasCameraEnabledBeforeBackground) {
+                try {
+                    r.localParticipant.setCameraEnabled(false)
+                } catch (e: Exception) {
+                    android.util.Log.e("RoomSessionManager", "Failed to pause camera", e)
+                }
+            }
+        }
+    }
+
+    fun onAppForegrounded() {
+        val r = room ?: return
+        scope.launch {
+            if (wasCameraEnabledBeforeBackground && _uiState.value.hasCameraPermission) {
+                try {
+                    r.localParticipant.setCameraEnabled(true)
+                } catch (e: Exception) {
+                    android.util.Log.e("RoomSessionManager", "Failed to resume camera", e)
+                }
+            }
+        }
+    }
 }

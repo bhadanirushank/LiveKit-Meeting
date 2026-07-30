@@ -217,7 +217,8 @@ fun LiveRoomScreen(
                         },
                         onSwitchCamera = { viewModel.switchCamera() },
                         onLeave = { showLeaveConfirmation = true },
-                        onHostControlsClick = { showHostControls = true }
+                        onHostControlsClick = { showHostControls = true },
+                        enabled = (state is RoomState.Connected)
                     )
                 }
                 
@@ -443,7 +444,8 @@ fun RoomControls(
     onToggleCamera: () -> Unit,
     onSwitchCamera: () -> Unit,
     onLeave: () -> Unit,
-    onHostControlsClick: () -> Unit
+    onHostControlsClick: () -> Unit,
+    enabled: Boolean = true
 ) {
     Row(
         modifier = Modifier

@@ -13,9 +13,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.jbcoder.meeting.lifecycle.AppLifecycleManager
 
 sealed interface ParticipantWaitingRoomState {
     object Initializing : ParticipantWaitingRoomState
@@ -23,13 +25,15 @@ sealed interface ParticipantWaitingRoomState {
     object Admitted : ParticipantWaitingRoomState
     object TokenReady : ParticipantWaitingRoomState
     data class Error(val message: String) : ParticipantWaitingRoomState
+    object HandoffLost : ParticipantWaitingRoomState
 }
 
 @HiltViewModel
 class ParticipantWaitingRoomViewModel @Inject constructor(
     private val handoffStore: MeetingEntryHandoffStore,
     private val roomConnectionHandoffStore: RoomConnectionHandoffStore,
-    private val repository: MeetingRepository
+    private val repository: MeetingRepository,
+    private val appLifecycleManager: AppLifecycleManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<ParticipantWaitingRoomState>(ParticipantWaitingRoomState.Initializing)
@@ -51,7 +55,7 @@ class ParticipantWaitingRoomViewModel @Inject constructor(
     private fun initialize() {
         val handoff = handoffStore.consumeAndClear() as? MeetingEntryHandoff.ParticipantRequested
         if (handoff == null) {
-            _uiState.value = ParticipantWaitingRoomState.Error("Session lost")
+            _uiState.value = ParticipantWaitingRoomState.HandoffLost
             return
         }
 
@@ -66,9 +70,13 @@ class ParticipantWaitingRoomViewModel @Inject constructor(
     fun startPolling() {
         pollingJob?.cancel()
         pollingJob = viewModelScope.launch {
-            while (isActive) {
-                checkStatus()
-                delay(3000)
+            appLifecycleManager.isForeground.collectLatest { isForeground ->
+                if (isForeground) {
+                    while (isActive) {
+                        checkStatus()
+                        delay(3000)
+                    }
+                }
             }
         }
     }

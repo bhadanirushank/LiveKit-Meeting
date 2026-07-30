@@ -17,14 +17,17 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.jbcoder.meeting.lifecycle.AppLifecycleManager
 
 sealed interface HostWaitingRoomState {
     object Initializing : HostWaitingRoomState
     object Active : HostWaitingRoomState
     data class Error(val message: String) : HostWaitingRoomState
+    object HandoffLost : HostWaitingRoomState
 }
 
 @HiltViewModel
@@ -33,7 +36,8 @@ class HostWaitingRoomViewModel @Inject constructor(
     private val hostSessionStore: HostSessionStore,
     private val roomConnectionHandoffStore: RoomConnectionHandoffStore,
     private val repository: MeetingRepository,
-    private val installationIdProvider: InstallationIdProvider
+    private val installationIdProvider: InstallationIdProvider,
+    private val appLifecycleManager: AppLifecycleManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<HostWaitingRoomState>(HostWaitingRoomState.Initializing)
@@ -55,7 +59,7 @@ class HostWaitingRoomViewModel @Inject constructor(
     private fun initialize() {
         val handoff = handoffStore.consumeAndClear() as? MeetingEntryHandoff.HostCreated
         if (handoff == null) {
-            _uiState.value = HostWaitingRoomState.Error("Session lost")
+            _uiState.value = HostWaitingRoomState.HandoffLost
             return
         }
 
@@ -82,9 +86,13 @@ class HostWaitingRoomViewModel @Inject constructor(
     fun startPolling() {
         pollingJob?.cancel()
         pollingJob = viewModelScope.launch {
-            while (isActive) {
-                fetchWaitingRoom()
-                delay(3000)
+            appLifecycleManager.isForeground.collectLatest { isForeground ->
+                if (isForeground) {
+                    while (isActive) {
+                        fetchWaitingRoom()
+                        delay(3000)
+                    }
+                }
             }
         }
     }

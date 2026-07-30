@@ -20,6 +20,7 @@ sealed interface RoomPreJoinState {
         val isHost: Boolean
     ) : RoomPreJoinState
     data class Error(val message: String) : RoomPreJoinState
+    object HandoffLost : RoomPreJoinState
 }
 
 @HiltViewModel
@@ -49,7 +50,7 @@ class RoomPreJoinViewModel @Inject constructor(
         // Or wait, we CAN consume it and hold it securely in memory here until connection.
         val handoff = handoffStore.consume()
         if (handoff == null) {
-            _uiState.value = RoomPreJoinState.Error("Session lost or already consumed")
+            _uiState.value = RoomPreJoinState.HandoffLost
             return
         }
 

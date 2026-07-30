@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.VideocamOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -70,6 +71,11 @@ fun RoomPreJoinScreen(
             when (val state = uiState) {
                 is RoomPreJoinState.Initializing -> {
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                }
+                is RoomPreJoinState.HandoffLost -> {
+                    LaunchedEffect(Unit) {
+                        onNavigateHome()
+                    }
                 }
                 is RoomPreJoinState.Error -> {
                     Column(

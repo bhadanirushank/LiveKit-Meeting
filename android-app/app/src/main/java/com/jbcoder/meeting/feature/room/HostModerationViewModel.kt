@@ -3,14 +3,16 @@ package com.jbcoder.meeting.feature.room
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jbcoder.meeting.data.meeting.HostSessionStore
+import com.jbcoder.meeting.lifecycle.AppLifecycleManager
 import com.jbcoder.meeting.network.HostMeetingApiService
 import com.jbcoder.meeting.network.MeetingApiService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.livekit.android.room.participant.Participant
-import io.livekit.android.room.track.Track
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import java.util.UUID
 import javax.inject.Inject
@@ -20,7 +22,8 @@ class HostModerationViewModel @Inject constructor(
     private val roomSessionManager: RoomSessionManager,
     private val hostApiService: HostMeetingApiService,
     private val meetingApiService: MeetingApiService,
-    private val hostSessionStore: HostSessionStore
+    private val hostSessionStore: HostSessionStore,
+    private val appLifecycleManager: AppLifecycleManager
 ) : ViewModel() {
 
     private val json = Json { ignoreUnknownKeys = true }
@@ -31,7 +34,17 @@ class HostModerationViewModel @Inject constructor(
     private var meetingCode: String? = null
     
     // Simple installation ID and idempotency key generator for the demo
-    private val installationId = UUID.randomUUID().toString()
+    private val idempotencyKeys = mutableMapOf<String, String>()
+
+    private fun getIdempotencyKey(actionId: String): String {
+        return idempotencyKeys.getOrPut(actionId) { UUID.randomUUID().toString() }
+    }
+
+    private fun clearIdempotencyKey(actionId: String) {
+        idempotencyKeys.remove(actionId)
+    }
+
+    private var installationId: String = UUID.randomUUID().toString()
 
     init {
         viewModelScope.launch {
@@ -52,14 +65,19 @@ class HostModerationViewModel @Inject constructor(
         }
     }
 
-    private var pollingJob: kotlinx.coroutines.Job? = null
+    private var waitingRoomPollingJob: Job? = null
 
     private fun startPollingWaitingRoom() {
-        if (pollingJob?.isActive == true) return
-        pollingJob = viewModelScope.launch {
-            while (isActive) {
-                fetchWaitingRoom()
-                kotlinx.coroutines.delay(5000)
+        if (waitingRoomPollingJob != null) return // Already polling
+        
+        waitingRoomPollingJob = viewModelScope.launch {
+            appLifecycleManager.isForeground.collectLatest { isForeground ->
+                if (isForeground) {
+                    while (isActive) {
+                        fetchWaitingRoom()
+                        delay(5000) // Poll every 5 seconds
+                    }
+                }
             }
         }
     }
@@ -72,6 +90,8 @@ class HostModerationViewModel @Inject constructor(
                 response.body()?.let { body ->
                     _state.update { it.copy(pendingRequests = body.requests) }
                 }
+            } else if (response.code() == 401 || response.code() == 403) {
+                handleError(response.code())
             }
         } catch (e: Exception) {
             // Ignore polling errors to not spam UI
@@ -88,14 +108,16 @@ class HostModerationViewModel @Inject constructor(
 
     fun admitWaitingRoomParticipant(requestId: String) {
         val code = meetingCode ?: return
+        val actionId = "admit-$requestId"
         viewModelScope.launch {
             try {
                 hostApiService.admitParticipant(
                     meetingCode = code,
                     requestId = requestId,
                     installationId = installationId,
-                    idempotencyKey = UUID.randomUUID().toString()
+                    idempotencyKey = getIdempotencyKey(actionId)
                 )
+                clearIdempotencyKey(actionId)
                 fetchWaitingRoom()
             } catch (e: Exception) {
                 _state.update { it.copy(message = "Failed to admit: ${e.message}") }
@@ -175,11 +197,13 @@ class HostModerationViewModel @Inject constructor(
     fun lockMeeting() {
         if (_state.value.role != MeetingRole.HOST) return
         val code = meetingCode ?: return
+        val actionId = "lock-$code"
         viewModelScope.launch {
             _state.update { it.copy(isActionLoading = true) }
             try {
-                val res = hostApiService.lockMeeting(code, installationId, UUID.randomUUID().toString())
+                val res = hostApiService.lockMeeting(code, installationId, getIdempotencyKey(actionId))
                 if (res.isSuccessful) {
+                    clearIdempotencyKey(actionId)
                     _state.update { it.copy(meetingLocked = res.body()?.locked == true, message = "Meeting locked") }
                 } else {
                     handleError(res.code())
@@ -195,11 +219,13 @@ class HostModerationViewModel @Inject constructor(
     fun unlockMeeting() {
         if (_state.value.role != MeetingRole.HOST) return
         val code = meetingCode ?: return
+        val actionId = "unlock-$code"
         viewModelScope.launch {
             _state.update { it.copy(isActionLoading = true) }
             try {
-                val res = hostApiService.unlockMeeting(code, installationId, UUID.randomUUID().toString())
+                val res = hostApiService.unlockMeeting(code, installationId, getIdempotencyKey(actionId))
                 if (res.isSuccessful) {
+                    clearIdempotencyKey(actionId)
                     _state.update { it.copy(meetingLocked = res.body()?.locked == true, message = "Meeting unlocked") }
                 } else {
                     handleError(res.code())
@@ -396,6 +422,7 @@ class HostModerationViewModel @Inject constructor(
         val msg = when (code) {
             401 -> {
                 hostSessionStore.clear()
+                _state.update { it.copy(role = MeetingRole.PARTICIPANT) }
                 "Host session expired. Controls disabled."
             }
             404 -> "Meeting not found"
@@ -406,6 +433,6 @@ class HostModerationViewModel @Inject constructor(
     }
     override fun onCleared() {
         super.onCleared()
-        pollingJob?.cancel()
+        waitingRoomPollingJob?.cancel()
     }
 }

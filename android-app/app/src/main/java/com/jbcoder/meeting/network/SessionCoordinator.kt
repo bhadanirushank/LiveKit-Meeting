@@ -111,7 +111,7 @@ class SessionCoordinator @Inject constructor(
             }
         } catch (e: Exception) {
             // Network failure during refresh
-            return null
+            throw e
         }
     }
 
