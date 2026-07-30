@@ -10,6 +10,7 @@ import io.livekit.android.room.participant.Participant
 import io.livekit.android.room.track.Track
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.isActive
 import kotlinx.serialization.json.Json
 import java.util.UUID
 import javax.inject.Inject
@@ -42,6 +43,80 @@ class HostModerationViewModel @Inject constructor(
 
     fun setMeetingCode(code: String) {
         this.meetingCode = code
+        checkAndStartPolling()
+    }
+
+    private fun checkAndStartPolling() {
+        if (_state.value.role == MeetingRole.HOST && meetingCode != null) {
+            startPollingWaitingRoom()
+        }
+    }
+
+    private var pollingJob: kotlinx.coroutines.Job? = null
+
+    private fun startPollingWaitingRoom() {
+        if (pollingJob?.isActive == true) return
+        pollingJob = viewModelScope.launch {
+            while (isActive) {
+                fetchWaitingRoom()
+                kotlinx.coroutines.delay(5000)
+            }
+        }
+    }
+
+    private suspend fun fetchWaitingRoom() {
+        val code = meetingCode ?: return
+        try {
+            val response = hostApiService.getWaitingRoom(code)
+            if (response.isSuccessful) {
+                response.body()?.let { body ->
+                    _state.update { it.copy(pendingRequests = body.requests) }
+                }
+            }
+        } catch (e: Exception) {
+            // Ignore polling errors to not spam UI
+        }
+    }
+
+    fun showWaitingRoomDialog() {
+        _state.update { it.copy(isWaitingRoomDialogVisible = true) }
+    }
+
+    fun hideWaitingRoomDialog() {
+        _state.update { it.copy(isWaitingRoomDialogVisible = false) }
+    }
+
+    fun admitWaitingRoomParticipant(requestId: String) {
+        val code = meetingCode ?: return
+        viewModelScope.launch {
+            try {
+                hostApiService.admitParticipant(
+                    meetingCode = code,
+                    requestId = requestId,
+                    installationId = installationId,
+                    idempotencyKey = UUID.randomUUID().toString()
+                )
+                fetchWaitingRoom()
+            } catch (e: Exception) {
+                _state.update { it.copy(message = "Failed to admit: ${e.message}") }
+            }
+        }
+    }
+
+    fun rejectWaitingRoomParticipant(requestId: String) {
+        val code = meetingCode ?: return
+        viewModelScope.launch {
+            try {
+                hostApiService.rejectParticipant(
+                    meetingCode = code,
+                    requestId = requestId,
+                    request = com.jbcoder.meeting.network.RejectRequest()
+                )
+                fetchWaitingRoom()
+            } catch (e: Exception) {
+                _state.update { it.copy(message = "Failed to reject: ${e.message}") }
+            }
+        }
     }
 
     private fun updateParticipantsFromRoom(livekitParticipants: List<Participant>) {
@@ -73,7 +148,9 @@ class HostModerationViewModel @Inject constructor(
             
             // If the local participant is parsed as Host, update our state
             if (isLocalParticipant) {
+                val roleChanged = _state.value.role != role
                 _state.update { it.copy(role = role) }
+                if (roleChanged) checkAndStartPolling()
             }
 
             // Preserve existing action states
@@ -326,5 +403,9 @@ class HostModerationViewModel @Inject constructor(
             else -> "Action failed ($code)"
         }
         _state.update { it.copy(message = msg) }
+    }
+    override fun onCleared() {
+        super.onCleared()
+        pollingJob?.cancel()
     }
 }

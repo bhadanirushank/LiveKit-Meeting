@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.items as lazyItems
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CallEnd
@@ -15,6 +16,7 @@ import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.VideocamOff
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.GroupAdd
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -135,6 +137,31 @@ fun LiveRoomScreen(
             is RoomState.Connected,
             is RoomState.Reconnecting -> {
                 Column(modifier = Modifier.fillMaxSize()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Meeting: ${uiState.meetingCode}",
+                            color = Color.White,
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        if (hostState.role == MeetingRole.HOST) {
+                            IconButton(onClick = { hostViewModel.showWaitingRoomDialog() }) {
+                                BadgedBox(
+                                    badge = {
+                                        if (hostState.pendingRequests.isNotEmpty()) {
+                                            Badge { Text(hostState.pendingRequests.size.toString()) }
+                                        }
+                                    }
+                                ) {
+                                    Icon(Icons.Default.GroupAdd, contentDescription = "Waiting Room", tint = Color.White)
+                                }
+                            }
+                        }
+                    }
+
                     if (state is RoomState.Reconnecting) {
                         Box(
                             modifier = Modifier
@@ -250,6 +277,15 @@ fun LiveRoomScreen(
                             )
                         }
                     }
+                }
+                
+                if (hostState.isWaitingRoomDialogVisible) {
+                    MidMeetingWaitingRoomDialog(
+                        pendingRequests = hostState.pendingRequests,
+                        onDismiss = { hostViewModel.hideWaitingRoomDialog() },
+                        onAdmit = { hostViewModel.admitWaitingRoomParticipant(it) },
+                        onReject = { hostViewModel.rejectWaitingRoomParticipant(it) }
+                    )
                 }
             }
             is RoomState.FatalError -> {
@@ -454,6 +490,56 @@ fun RoomControls(
             colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
         ) {
             Icon(Icons.Default.CallEnd, contentDescription = "Leave Meeting")
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MidMeetingWaitingRoomDialog(
+    pendingRequests: List<com.jbcoder.meeting.network.PendingJoinRequest>,
+    onDismiss: () -> Unit,
+    onAdmit: (String) -> Unit,
+    onReject: (String) -> Unit
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+            Text(
+                text = "Waiting Room (${pendingRequests.size})",
+                style = MaterialTheme.typography.titleLarge
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            if (pendingRequests.isEmpty()) {
+                Text("No pending requests.", modifier = Modifier.padding(vertical = 32.dp))
+            } else {
+                androidx.compose.foundation.lazy.LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f, fill = false)) {
+                    lazyItems(pendingRequests) { request ->
+                        Card(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column {
+                                    Text(request.displayName, style = MaterialTheme.typography.bodyLarge)
+                                }
+                                Row {
+                                    TextButton(onClick = { onReject(request.id) }) {
+                                        Text("Reject", color = MaterialTheme.colorScheme.error)
+                                    }
+                                    Button(onClick = { onAdmit(request.id) }) {
+                                        Text("Admit")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

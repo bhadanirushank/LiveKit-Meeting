@@ -146,6 +146,5 @@ class HostWaitingRoomViewModel @Inject constructor(
     
     override fun onCleared() {
         super.onCleared()
-        hostSessionStore.clear()
     }
 }

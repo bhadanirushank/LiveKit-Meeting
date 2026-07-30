@@ -22,13 +22,7 @@ fun ParticipantWaitingRoomScreen(
     val displayName by viewModel.displayName.collectAsState()
 
     LaunchedEffect(uiState) {
-        if (uiState is ParticipantWaitingRoomState.Admitted) {
-            // Need to wait until RoomConnectionHandoff is created by ViewModel,
-            // but the viewmodel handles that. 
-            // In a more robust architecture, we'd use a UI Event channel.
-            // For now, we assume token is fetched quickly and handoff is ready.
-            // Actually, we can just navigate to LiveRoom. 
-            // Phase6CHandoffPlaceholder will read RoomConnectionHandoff!
+        if (uiState is ParticipantWaitingRoomState.TokenReady) {
             onNavigateLiveRoom()
         }
     }
@@ -53,7 +47,8 @@ fun ParticipantWaitingRoomScreen(
                         Text("Name: $displayName", style = MaterialTheme.typography.bodyMedium)
                     }
                 }
-                is ParticipantWaitingRoomState.Admitted -> {
+                is ParticipantWaitingRoomState.Admitted,
+                is ParticipantWaitingRoomState.TokenReady -> {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         CircularProgressIndicator(modifier = Modifier.padding(bottom = 16.dp))
                         Text("Admitted! Preparing connection...", style = MaterialTheme.typography.titleMedium)

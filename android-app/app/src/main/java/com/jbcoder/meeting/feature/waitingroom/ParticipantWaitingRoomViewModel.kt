@@ -21,6 +21,7 @@ sealed interface ParticipantWaitingRoomState {
     object Initializing : ParticipantWaitingRoomState
     object Waiting : ParticipantWaitingRoomState
     object Admitted : ParticipantWaitingRoomState
+    object TokenReady : ParticipantWaitingRoomState
     data class Error(val message: String) : ParticipantWaitingRoomState
 }
 
@@ -114,7 +115,7 @@ class ParticipantWaitingRoomViewModel @Inject constructor(
                             livekitToken = it
                         )
                     )
-                    // Navigate from UI based on state/events
+                    _uiState.value = ParticipantWaitingRoomState.TokenReady
                 } ?: run {
                     _uiState.value = ParticipantWaitingRoomState.Error("Missing LiveKit token")
                 }
