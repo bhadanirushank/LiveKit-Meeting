@@ -1,5 +1,6 @@
 package com.jbcoder.meeting.feature.joinmeeting
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -7,15 +8,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.jbcoder.meeting.core.designsystem.MeetingInlineError
 import com.jbcoder.meeting.core.designsystem.MeetingLoadingIndicator
 import com.jbcoder.meeting.core.designsystem.MeetingPrimaryButton
 import com.jbcoder.meeting.core.designsystem.MeetingTextField
+import com.jbcoder.meeting.core.designsystem.MeetingTopBar
 import kotlinx.coroutines.flow.collectLatest
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun JoinMeetingScreen(
     onNavigateBack: () -> Unit,
@@ -35,57 +37,83 @@ fun JoinMeetingScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Join Meeting") },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Text("<-")
-                    }
-                }
+            MeetingTopBar(
+                title = "Join Meeting",
+                onBackClick = onNavigateBack
             )
-        }
+        },
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            MeetingTextField(
-                value = formState.meetingCode,
-                onValueChange = { viewModel.updateMeetingCode(it); viewModel.resetError() },
-                label = "Meeting Code (12 chars)",
-                enabled = uiState !is JoinMeetingUiState.Loading
-            )
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
+                Text(
+                    text = "Enter meeting details",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                
+                Text(
+                    text = "Provide the 12-character code and your name to join.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
 
-            MeetingTextField(
-                value = formState.displayName,
-                onValueChange = { viewModel.updateDisplayName(it); viewModel.resetError() },
-                label = "Display Name",
-                enabled = uiState !is JoinMeetingUiState.Loading
-            )
+                MeetingTextField(
+                    value = formState.meetingCode,
+                    onValueChange = { viewModel.updateMeetingCode(it); viewModel.resetError() },
+                    label = "Meeting Code",
+                    placeholder = "e.g. abc-def-ghi-jkl",
+                    enabled = uiState !is JoinMeetingUiState.Loading
+                )
 
-            MeetingTextField(
-                value = formState.passcode,
-                onValueChange = { viewModel.updatePasscode(it); viewModel.resetError() },
-                label = "Passcode (Optional)",
-                enabled = uiState !is JoinMeetingUiState.Loading
-            )
+                MeetingTextField(
+                    value = formState.displayName,
+                    onValueChange = { viewModel.updateDisplayName(it); viewModel.resetError() },
+                    label = "Display Name",
+                    placeholder = "How others will see you",
+                    enabled = uiState !is JoinMeetingUiState.Loading
+                )
 
-            if (uiState is JoinMeetingUiState.Error) {
-                MeetingInlineError(message = (uiState as JoinMeetingUiState.Error).message)
+                MeetingTextField(
+                    value = formState.passcode,
+                    onValueChange = { viewModel.updatePasscode(it); viewModel.resetError() },
+                    label = "Passcode (Optional)",
+                    placeholder = "If required by host",
+                    enabled = uiState !is JoinMeetingUiState.Loading
+                )
+
+                if (uiState is JoinMeetingUiState.Error) {
+                    MeetingInlineError(message = (uiState as JoinMeetingUiState.Error).message)
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                MeetingPrimaryButton(
+                    text = "Join Meeting",
+                    onClick = { viewModel.submit() },
+                    enabled = uiState !is JoinMeetingUiState.Loading
+                )
             }
-
-            MeetingPrimaryButton(
-                text = "Join",
-                onClick = { viewModel.submit() },
-                enabled = uiState !is JoinMeetingUiState.Loading
-            )
-
+            
             if (uiState is JoinMeetingUiState.Loading) {
-                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.background.copy(alpha = 0.6f)),
+                    contentAlignment = Alignment.Center
+                ) {
                     MeetingLoadingIndicator()
                 }
             }

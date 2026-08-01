@@ -1,0 +1,6 @@
+{
+  "name": "Meeting App",
+  "description": "A native Android audio/video meeting application with a Professional Polish design theme.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

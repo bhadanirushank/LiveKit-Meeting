@@ -1,5 +1,6 @@
 package com.jbcoder.meeting.feature.waitingroom
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -10,9 +11,12 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.jbcoder.meeting.core.designsystem.*
 import com.jbcoder.meeting.network.PendingJoinRequest
+import com.jbcoder.meeting.presentation.theme.MeetingPrimary
 
 @Composable
 fun HostWaitingRoomScreen(
@@ -26,14 +30,25 @@ fun HostWaitingRoomScreen(
 
     Scaffold(
         topBar = {
-            @OptIn(ExperimentalMaterial3Api::class)
-            TopAppBar(title = { Text("Host Waiting Room: $meetingCode") })
-        }
+            MeetingTopBar(
+                title = "Waiting Room"
+            )
+        },
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
-        Box(modifier = Modifier.padding(padding).fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+        ) {
             when (val state = uiState) {
                 is HostWaitingRoomState.Initializing -> {
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        MeetingLoadingIndicator()
+                    }
                 }
                 is HostWaitingRoomState.HandoffLost -> {
                     LaunchedEffect(Unit) {
@@ -42,28 +57,55 @@ fun HostWaitingRoomScreen(
                 }
                 is HostWaitingRoomState.Error -> {
                     Column(
-                        modifier = Modifier.align(Alignment.Center),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        Text("Error: ${state.message}", color = MaterialTheme.colorScheme.error)
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = onNavigateHome) {
-                            Text("Go Home")
-                        }
+                        MeetingInlineError(message = state.message)
+                        MeetingSecondaryButton(
+                            text = "Return Home",
+                            onClick = onNavigateHome
+                        )
                     }
                 }
                 is HostWaitingRoomState.Active -> {
-                    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 24.dp)
+                    ) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        MeetingCodeCard(meetingCode = meetingCode)
+                        Spacer(modifier = Modifier.height(24.dp))
+                        
                         Text(
                             text = "Pending Requests (${requests.size})",
-                            style = MaterialTheme.typography.titleLarge
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         
                         if (requests.isEmpty()) {
-                            Text("No pending requests.", modifier = Modifier.weight(1f))
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxWidth(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "No one is waiting.",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         } else {
-                            LazyColumn(modifier = Modifier.weight(1f)) {
+                            LazyColumn(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
                                 items(requests) { request ->
                                     RequestItem(
                                         request = request,
@@ -75,12 +117,12 @@ fun HostWaitingRoomScreen(
                         }
 
                         Spacer(modifier = Modifier.height(16.dp))
-                        Button(
+                        
+                        MeetingPrimaryButton(
+                            text = "Start Meeting",
                             onClick = { viewModel.startMeeting(onReady = onNavigateLiveRoom) },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("Start Meeting")
-                        }
+                            modifier = Modifier.padding(bottom = 24.dp)
+                        )
                     }
                 }
             }
@@ -94,25 +136,54 @@ private fun RequestItem(
     onAdmit: () -> Unit,
     onReject: () -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 1.dp
     ) {
         Row(
-            modifier = Modifier.padding(16.dp).fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Column {
-                Text(request.displayName, style = MaterialTheme.typography.bodyLarge)
-                Text(request.requestedAt, style = MaterialTheme.typography.bodySmall)
+            ParticipantAvatar(name = request.displayName, size = 48)
+            Spacer(modifier = Modifier.width(16.dp))
+            
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = request.displayName,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "Waiting to join",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
-            Row {
-                TextButton(onClick = onReject) {
-                    Text("Reject", color = MaterialTheme.colorScheme.error)
+            
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(
+                    onClick = onReject,
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("Decline", fontWeight = FontWeight.SemiBold)
                 }
-                Button(onClick = onAdmit) {
-                    Text("Admit")
+                
+                Button(
+                    onClick = onAdmit,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MeetingPrimary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ),
+                    shape = MaterialTheme.shapes.small
+                ) {
+                    Text("Admit", fontWeight = FontWeight.SemiBold)
                 }
             }
         }

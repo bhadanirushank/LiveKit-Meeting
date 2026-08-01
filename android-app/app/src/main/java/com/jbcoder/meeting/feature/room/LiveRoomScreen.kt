@@ -1,11 +1,17 @@
 package com.jbcoder.meeting.feature.room
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items as lazyItems
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CallEnd
@@ -18,21 +24,20 @@ import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.GroupAdd
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.jbcoder.meeting.core.designsystem.*
+import com.jbcoder.meeting.presentation.theme.MeetingPrimary
 import io.livekit.android.room.participant.Participant
 import io.livekit.android.room.track.VideoTrack
 import io.livekit.android.renderer.TextureViewRenderer
@@ -47,10 +52,10 @@ fun LiveRoomScreen(
     val hostState by hostViewModel.state.collectAsState()
     var showLeaveConfirmation by remember { mutableStateOf(false) }
     var showHostControls by remember { mutableStateOf(false) }
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = LocalContext.current
 
-    val audioPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-        contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission(),
+    val audioPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
         onResult = { granted ->
             if (granted) {
                 viewModel.toggleMic()
@@ -58,8 +63,8 @@ fun LiveRoomScreen(
         }
     )
 
-    val cameraPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-        contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission(),
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
         onResult = { granted ->
             if (granted) {
                 viewModel.toggleCamera()
@@ -76,30 +81,37 @@ fun LiveRoomScreen(
     if (showLeaveConfirmation) {
         AlertDialog(
             onDismissRequest = { showLeaveConfirmation = false },
-            title = { Text("Leave Meeting") },
+            title = { Text("Leave Meeting", fontWeight = FontWeight.Bold) },
             text = { Text("Are you sure you want to leave the meeting?") },
             confirmButton = {
-                Button(onClick = {
-                    showLeaveConfirmation = false
-                    viewModel.disconnect()
-                    onNavigateHome()
-                }) {
+                Button(
+                    onClick = {
+                        showLeaveConfirmation = false
+                        viewModel.disconnect()
+                        onNavigateHome()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
                     Text("Leave")
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showLeaveConfirmation = false }) {
-                    Text("Cancel")
+                    Text("Cancel", color = MaterialTheme.colorScheme.onSurface)
                 }
-            }
+            },
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(16.dp)
         )
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
         when (val state = uiState.roomState) {
             is RoomState.Disconnected -> {
-                // If we get here and there's no room, it might be the initial state.
-                // Wait to navigate home until explicitly disconnected.
                 if (uiState.room != null) {
                     LaunchedEffect(Unit) {
                         onNavigateHome()
@@ -108,89 +120,122 @@ fun LiveRoomScreen(
             }
             is RoomState.FatalError -> {
                 Column(
-                    modifier = Modifier.align(Alignment.Center),
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Icon(Icons.Default.Warning, contentDescription = "Error", tint = Color.Red, modifier = Modifier.size(48.dp))
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text("Connection Failed:", color = Color.White)
-                    Text(state.message, color = Color.Red)
+                    Icon(
+                        Icons.Default.Warning,
+                        contentDescription = "Error",
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(64.dp)
+                    )
                     Spacer(modifier = Modifier.height(24.dp))
-                    Button(onClick = { 
-                        viewModel.disconnect()
-                        onNavigateHome()
-                    }) {
-                        Text("Go Back")
-                    }
+                    Text(
+                        text = "Connection Failed",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = state.message,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(32.dp))
+                    MeetingSecondaryButton(
+                        text = "Return Home",
+                        onClick = { 
+                            viewModel.disconnect()
+                            onNavigateHome()
+                        }
+                    )
                 }
             }
             is RoomState.Connecting -> {
-                Column(
-                    modifier = Modifier.align(Alignment.Center),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(color = Color.White)
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text("Connecting...", color = Color.White)
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        MeetingLoadingIndicator()
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Text(
+                            text = "Connecting to secure room...",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                    }
                 }
             }
             is RoomState.Connected,
             is RoomState.Reconnecting -> {
                 Column(modifier = Modifier.fillMaxSize()) {
+                    // Header
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 16.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "Meeting: ${uiState.meetingCode}",
-                            color = Color.White,
-                            style = MaterialTheme.typography.titleMedium
-                        )
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant
+                        ) {
+                            Text(
+                                text = "Code: ${uiState.meetingCode}",
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
                         if (hostState.role == MeetingRole.HOST) {
                             IconButton(onClick = { hostViewModel.showWaitingRoomDialog() }) {
                                 BadgedBox(
                                     badge = {
                                         if (hostState.pendingRequests.isNotEmpty()) {
-                                            Badge { Text(hostState.pendingRequests.size.toString()) }
+                                            Badge(containerColor = MeetingPrimary) { 
+                                                Text(hostState.pendingRequests.size.toString(), color = Color.White) 
+                                            }
                                         }
                                     }
                                 ) {
-                                    Icon(Icons.Default.GroupAdd, contentDescription = "Waiting Room", tint = Color.White)
+                                    Icon(
+                                        Icons.Default.GroupAdd, 
+                                        contentDescription = "Waiting Room", 
+                                        tint = MaterialTheme.colorScheme.onBackground
+                                    )
                                 }
                             }
                         }
                     }
 
                     if (state is RoomState.Reconnecting) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(Color(0xFFB71C1C))
-                                .padding(8.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Warning, contentDescription = null, tint = Color.White)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Reconnecting...", color = Color.White)
-                            }
-                        }
+                        MeetingInlineError(
+                            message = "Reconnecting to meeting...",
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
                     }
 
                     if (uiState.lastError != null) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(Color(0xFFFF9800))
-                                .padding(8.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(uiState.lastError ?: "", color = Color.White)
-                        }
+                        MeetingInlineError(
+                            message = uiState.lastError ?: "",
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
                     }
 
-                    Box(modifier = Modifier.weight(1f).padding(8.dp)) {
+                    // Grid
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    ) {
                         ParticipantGrid(
                             room = uiState.room, 
                             participants = uiState.participants,
@@ -198,28 +243,37 @@ fun LiveRoomScreen(
                         )
                     }
                     
-                    RoomControls(
-                        isMicEnabled = uiState.isMicEnabled,
-                        isCameraEnabled = uiState.isCameraEnabled,
-                        onToggleMic = { 
-                            if (!uiState.isMicEnabled && androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                                audioPermissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
-                            } else {
-                                viewModel.toggleMic() 
-                            }
-                        },
-                        onToggleCamera = { 
-                            if (!uiState.isCameraEnabled && androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.CAMERA) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                                cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
-                            } else {
-                                viewModel.toggleCamera() 
-                            }
-                        },
-                        onSwitchCamera = { viewModel.switchCamera() },
-                        onLeave = { showLeaveConfirmation = true },
-                        onHostControlsClick = { showHostControls = true },
-                        enabled = (state is RoomState.Connected)
-                    )
+                    // Controls Footer
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = MaterialTheme.colorScheme.surface,
+                        tonalElevation = 2.dp,
+                        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+                    ) {
+                        RoomControls(
+                            modifier = Modifier.padding(vertical = 24.dp, horizontal = 16.dp),
+                            isMicEnabled = uiState.isMicEnabled,
+                            isCameraEnabled = uiState.isCameraEnabled,
+                            onToggleMic = { 
+                                if (!uiState.isMicEnabled && ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                                    audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                } else {
+                                    viewModel.toggleMic() 
+                                }
+                            },
+                            onToggleCamera = { 
+                                if (!uiState.isCameraEnabled && ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+                                    cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                                } else {
+                                    viewModel.toggleCamera() 
+                                }
+                            },
+                            onSwitchCamera = { viewModel.switchCamera() },
+                            onLeave = { showLeaveConfirmation = true },
+                            onHostControlsClick = { showHostControls = true },
+                            enabled = (state is RoomState.Connected)
+                        )
+                    }
                 }
                 
                 if (showHostControls) {
@@ -244,37 +298,55 @@ fun LiveRoomScreen(
                         is ConfirmationDialogState.EndMeeting -> {
                             AlertDialog(
                                 onDismissRequest = { hostViewModel.dismissConfirmation() },
-                                title = { Text("End Meeting for All?") },
+                                title = { Text("End Meeting for All?", fontWeight = FontWeight.Bold) },
                                 text = { Text("Are you sure you want to end the meeting for everyone?") },
-                                confirmButton = { Button(onClick = { hostViewModel.endMeetingConfirmed() }) { Text("End Meeting") } },
-                                dismissButton = { TextButton(onClick = { hostViewModel.dismissConfirmation() }) { Text("Cancel") } }
+                                confirmButton = { 
+                                    Button(
+                                        onClick = { hostViewModel.endMeetingConfirmed() },
+                                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                                    ) { Text("End Meeting") } 
+                                },
+                                dismissButton = { TextButton(onClick = { hostViewModel.dismissConfirmation() }) { Text("Cancel", color = MaterialTheme.colorScheme.onSurface) } },
+                                containerColor = MaterialTheme.colorScheme.surface,
+                                shape = RoundedCornerShape(16.dp)
                             )
                         }
                         is ConfirmationDialogState.RemoveParticipant -> {
                             AlertDialog(
                                 onDismissRequest = { hostViewModel.dismissConfirmation() },
-                                title = { Text("Remove ${conf.name}?") },
+                                title = { Text("Remove ${conf.name}?", fontWeight = FontWeight.Bold) },
                                 text = { Text("Are you sure you want to remove ${conf.name} from the meeting? They will not be able to rejoin.") },
-                                confirmButton = { Button(onClick = { hostViewModel.removeParticipantConfirmed(conf.participantId) }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Remove") } },
-                                dismissButton = { TextButton(onClick = { hostViewModel.dismissConfirmation() }) { Text("Cancel") } }
+                                confirmButton = { 
+                                    Button(
+                                        onClick = { hostViewModel.removeParticipantConfirmed(conf.participantId) }, 
+                                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                                    ) { Text("Remove") } 
+                                },
+                                dismissButton = { TextButton(onClick = { hostViewModel.dismissConfirmation() }) { Text("Cancel", color = MaterialTheme.colorScheme.onSurface) } },
+                                containerColor = MaterialTheme.colorScheme.surface,
+                                shape = RoundedCornerShape(16.dp)
                             )
                         }
                         is ConfirmationDialogState.PromoteParticipant -> {
                             AlertDialog(
                                 onDismissRequest = { hostViewModel.dismissConfirmation() },
-                                title = { Text("Promote ${conf.name}?") },
+                                title = { Text("Promote ${conf.name}?", fontWeight = FontWeight.Bold) },
                                 text = { Text("Promote ${conf.name} to Co-host?") },
                                 confirmButton = { Button(onClick = { hostViewModel.promoteCohostConfirmed(conf.participantId) }) { Text("Promote") } },
-                                dismissButton = { TextButton(onClick = { hostViewModel.dismissConfirmation() }) { Text("Cancel") } }
+                                dismissButton = { TextButton(onClick = { hostViewModel.dismissConfirmation() }) { Text("Cancel", color = MaterialTheme.colorScheme.onSurface) } },
+                                containerColor = MaterialTheme.colorScheme.surface,
+                                shape = RoundedCornerShape(16.dp)
                             )
                         }
                         is ConfirmationDialogState.DemoteParticipant -> {
                             AlertDialog(
                                 onDismissRequest = { hostViewModel.dismissConfirmation() },
-                                title = { Text("Demote ${conf.name}?") },
+                                title = { Text("Demote ${conf.name}?", fontWeight = FontWeight.Bold) },
                                 text = { Text("Demote ${conf.name} to regular participant?") },
                                 confirmButton = { Button(onClick = { hostViewModel.demoteCohostConfirmed(conf.participantId) }) { Text("Demote") } },
-                                dismissButton = { TextButton(onClick = { hostViewModel.dismissConfirmation() }) { Text("Cancel") } }
+                                dismissButton = { TextButton(onClick = { hostViewModel.dismissConfirmation() }) { Text("Cancel", color = MaterialTheme.colorScheme.onSurface) } },
+                                containerColor = MaterialTheme.colorScheme.surface,
+                                shape = RoundedCornerShape(16.dp)
                             )
                         }
                     }
@@ -289,21 +361,6 @@ fun LiveRoomScreen(
                     )
                 }
             }
-            is RoomState.FatalError -> {
-                Column(
-                    modifier = Modifier.align(Alignment.Center),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text("Error: ${state.message}", color = Color.Red, textAlign = TextAlign.Center)
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(onClick = { 
-                        viewModel.disconnect()
-                        onNavigateHome()
-                    }) {
-                        Text("Return Home")
-                    }
-                }
-            }
         }
     }
 }
@@ -316,7 +373,11 @@ fun ParticipantGrid(
 ) {
     if (participants.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("Waiting for others...", color = Color.White)
+            Text(
+                text = "Waiting for others...",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+            )
         }
         return
     }
@@ -324,10 +385,10 @@ fun ParticipantGrid(
     LazyVerticalGrid(
         columns = GridCells.Fixed(if (participants.size > 2) 2 else 1),
         modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        items(participants, key = { it.sid?.value ?: it.identity?.value ?: it.hashCode().toString() }) { participant ->
+        items(participants, key = { it.sid.value ?: it.identity?.value ?: it.hashCode().toString() }) { participant ->
             ParticipantTile(
                 room = room, 
                 participant = participant, 
@@ -352,7 +413,7 @@ fun LiveKitVideoRenderer(
             }
         },
         update = { view ->
-            // In a more complex setup, you'd handle track switching here
+            // Update handled by LiveKit internal
         },
         onRelease = { view ->
             videoTrack.removeRenderer(view)
@@ -368,8 +429,6 @@ fun ParticipantTile(
     participant: Participant, 
     updateTrigger: Int
 ) {
-    // Read properties directly. 
-    // Composable recomposes when updateTrigger changes.
     val videoTracks = remember(updateTrigger, participant) { participant.videoTrackPublications }
     val audioTracks = remember(updateTrigger, participant) { participant.audioTrackPublications }
     val isSpeaking = remember(updateTrigger, participant) { participant.isSpeaking }
@@ -381,8 +440,13 @@ fun ParticipantTile(
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(3f / 4f)
-            .clip(RoundedCornerShape(8.dp))
-            .background(Color.DarkGray)
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .border(
+                width = if (isSpeaking) 3.dp else 0.dp,
+                color = if (isSpeaking) MeetingPrimary else Color.Transparent,
+                shape = RoundedCornerShape(16.dp)
+            )
     ) {
         if (videoTrack != null) {
             LiveKitVideoRenderer(
@@ -391,11 +455,13 @@ fun ParticipantTile(
                 modifier = Modifier.fillMaxSize()
             )
         } else {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(
-                    text = participant.identity?.value ?: "Unknown",
-                    color = Color.White,
-                    style = MaterialTheme.typography.titleLarge
+            Box(
+                modifier = Modifier.fillMaxSize(), 
+                contentAlignment = Alignment.Center
+            ) {
+                ParticipantAvatar(
+                    name = participant.name ?: participant.identity?.value ?: "?",
+                    size = 72
                 )
             }
         }
@@ -404,33 +470,23 @@ fun ParticipantTile(
         Row(
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .fillMaxWidth()
-                .background(Color.Black.copy(alpha = 0.5f))
-                .padding(4.dp),
+                .padding(12.dp)
+                .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
+                .padding(horizontal = 8.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
                 imageVector = if (isAudioMuted) Icons.Default.MicOff else Icons.Default.Mic,
                 contentDescription = null,
-                tint = if (isAudioMuted) Color.Red else Color.White,
-                modifier = Modifier.size(16.dp)
+                tint = if (isAudioMuted) MaterialTheme.colorScheme.error else Color.White,
+                modifier = Modifier.size(14.dp)
             )
-            Spacer(modifier = Modifier.width(4.dp))
+            Spacer(modifier = Modifier.width(6.dp))
             Text(
                 text = participant.name ?: participant.identity?.value ?: "User",
                 color = Color.White,
-                style = MaterialTheme.typography.bodySmall
-            )
-        }
-        
-        // Active speaker indicator
-        if (isSpeaking) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Transparent)
-                    .padding(2.dp)
-                    .clip(RoundedCornerShape(8.dp))
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.SemiBold
             )
         }
     }
@@ -438,6 +494,7 @@ fun ParticipantTile(
 
 @Composable
 fun RoomControls(
+    modifier: Modifier = Modifier,
     isMicEnabled: Boolean,
     isCameraEnabled: Boolean,
     onToggleMic: () -> Unit,
@@ -448,51 +505,47 @@ fun RoomControls(
     enabled: Boolean = true
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Color.DarkGray)
-            .padding(16.dp),
+        modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        IconButton(onClick = onToggleMic) {
-            Icon(
-                imageVector = if (isMicEnabled) Icons.Default.Mic else Icons.Default.MicOff,
-                contentDescription = "Toggle Mic",
-                tint = if (isMicEnabled) Color.White else Color.Red
-            )
-        }
-        IconButton(onClick = onToggleCamera) {
-            Icon(
-                imageVector = if (isCameraEnabled) Icons.Default.Videocam else Icons.Default.VideocamOff,
-                contentDescription = "Toggle Camera",
-                tint = if (isCameraEnabled) Color.White else Color.Red
-            )
-        }
+        MeetingControlButton(
+            icon = if (isMicEnabled) Icons.Default.Mic else Icons.Default.MicOff,
+            contentDescription = "Toggle Mic",
+            isActive = isMicEnabled,
+            onClick = onToggleMic
+        )
+        
+        MeetingControlButton(
+            icon = if (isCameraEnabled) Icons.Default.Videocam else Icons.Default.VideocamOff,
+            contentDescription = "Toggle Camera",
+            isActive = isCameraEnabled,
+            onClick = onToggleCamera
+        )
+        
         if (isCameraEnabled) {
-            IconButton(onClick = onSwitchCamera) {
-                Icon(
-                    imageVector = Icons.Default.Cameraswitch,
-                    contentDescription = "Switch Camera",
-                    tint = Color.White
-                )
-            }
-        }
-        
-        IconButton(onClick = onHostControlsClick) {
-            Icon(
-                imageVector = androidx.compose.material.icons.Icons.Default.MoreVert,
-                contentDescription = "Host Controls",
-                tint = Color.White
+            MeetingControlButton(
+                icon = Icons.Default.Cameraswitch,
+                contentDescription = "Switch Camera",
+                isActive = true,
+                onClick = onSwitchCamera
             )
         }
         
-        Button(
-            onClick = onLeave,
-            colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
-        ) {
-            Icon(Icons.Default.CallEnd, contentDescription = "Leave Meeting")
-        }
+        MeetingControlButton(
+            icon = Icons.Default.MoreVert,
+            contentDescription = "Host Controls",
+            isActive = true,
+            onClick = onHostControlsClick
+        )
+        
+        MeetingControlButton(
+            icon = Icons.Default.CallEnd,
+            contentDescription = "Leave Meeting",
+            isActive = true,
+            isDestructive = true,
+            onClick = onLeave
+        )
     }
 }
 
@@ -504,37 +557,85 @@ fun MidMeetingWaitingRoomDialog(
     onAdmit: (String) -> Unit,
     onReject: (String) -> Unit
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+        ) {
             Text(
-                text = "Waiting Room (${pendingRequests.size})",
-                style = MaterialTheme.typography.titleLarge
+                text = "Waiting Room",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
             )
-            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "${pendingRequests.size} people waiting",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            
+            Spacer(modifier = Modifier.height(24.dp))
             
             if (pendingRequests.isEmpty()) {
-                Text("No pending requests.", modifier = Modifier.padding(vertical = 32.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 48.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "No one is waiting.",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             } else {
-                androidx.compose.foundation.lazy.LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f, fill = false)) {
+                androidx.compose.foundation.lazy.LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f, fill = false),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
                     lazyItems(pendingRequests) { request ->
-                        Card(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant,
                         ) {
                             Row(
-                                modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                                modifier = Modifier
+                                    .padding(16.dp)
+                                    .fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Column {
-                                    Text(request.displayName, style = MaterialTheme.typography.bodyLarge)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    ParticipantAvatar(name = request.displayName, size = 40)
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Text(
+                                        text = request.displayName,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
                                 }
-                                Row {
-                                    TextButton(onClick = { onReject(request.id) }) {
-                                        Text("Reject", color = MaterialTheme.colorScheme.error)
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    TextButton(
+                                        onClick = { onReject(request.id) },
+                                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                                    ) {
+                                        Text("Decline", fontWeight = FontWeight.SemiBold)
                                     }
-                                    Button(onClick = { onAdmit(request.id) }) {
-                                        Text("Admit")
+                                    Button(
+                                        onClick = { onAdmit(request.id) },
+                                        colors = ButtonDefaults.buttonColors(containerColor = MeetingPrimary),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Text("Admit", fontWeight = FontWeight.SemiBold)
                                     }
                                 }
                             }
@@ -542,6 +643,8 @@ fun MidMeetingWaitingRoomDialog(
                     }
                 }
             }
+            
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }
