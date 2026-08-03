@@ -31,6 +31,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
+import android.widget.Toast
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -53,9 +56,7 @@ fun LiveRoomScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val hostState by hostViewModel.state.collectAsState()
-    var showLeaveConfirmation by remember { mutableStateOf(false) }
     var showHostControls by remember { mutableStateOf(false) }
-    var showScreenShareConfirm by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val mediaProjectionManager = remember { context.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager }
 
@@ -89,31 +90,6 @@ fun LiveRoomScreen(
         if (uiState.meetingCode.isNotBlank()) {
             hostViewModel.setMeetingCode(uiState.meetingCode)
         }
-    }
-
-    if (showLeaveConfirmation) {
-        AlertDialog(
-            onDismissRequest = { showLeaveConfirmation = false },
-            title = { Text("Leave Meeting", fontWeight = FontWeight.Bold) },
-            text = { Text("Are you sure you want to leave the meeting?") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showLeaveConfirmation = false
-                        viewModel.disconnect()
-                        onNavigateHome()
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = DangerRed)
-                ) {
-                    Text("Leave")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showLeaveConfirmation = false }) {
-                    Text("Cancel", color = MaterialTheme.colorScheme.onSurface)
-                }
-            }
-        )
     }
 
     MaterialTheme(colorScheme = LiveRoomColorScheme) {
@@ -193,7 +169,8 @@ fun LiveRoomScreen(
                     ) {
                         TopMeetingBar(
                             meetingCode = uiState.meetingCode, 
-                            participantCount = uiState.participants.size
+                            participantCount = uiState.participants.size,
+                            onMoreClick = { showHostControls = true }
                         )
 
                         if (state is RoomState.Reconnecting) {
@@ -289,8 +266,10 @@ fun LiveRoomScreen(
                                 }
                             },
                             onSwitchCamera = { viewModel.switchCamera() },
-                            onMoreClick = { showHostControls = true },
-                            onLeaveClick = { showLeaveConfirmation = true },
+                            onLeaveClick = { 
+                                viewModel.disconnect()
+                                onNavigateHome()
+                            },
                             enabled = (state is RoomState.Connected)
                         )
                     }
@@ -301,7 +280,10 @@ fun LiveRoomScreen(
                 MoreMenuSheet(
                     state = hostState,
                     isScreenSharing = uiState.isScreenSharing,
-                    onStartScreenShare = { showScreenShareConfirm = true },
+                    onStartScreenShare = { 
+                        showHostControls = false
+                        screenShareLauncher.launch(mediaProjectionManager.createScreenCaptureIntent())
+                    },
                     onStopScreenShare = { viewModel.stopScreenShare() },
                     onMuteParticipant = { hostViewModel.muteParticipant(it) },
                     onAskToUnmute = { hostViewModel.askToUnmute(it) },
@@ -311,23 +293,6 @@ fun LiveRoomScreen(
                     onPromoteClick = { id, name -> hostViewModel.showConfirmation(ConfirmationDialogState.PromoteParticipant(id, name)) },
                     onDemoteClick = { id, name -> hostViewModel.showConfirmation(ConfirmationDialogState.DemoteParticipant(id, name)) },
                     onDismiss = { showHostControls = false }
-                )
-            }
-
-            if (showScreenShareConfirm) {
-                AlertDialog(
-                    onDismissRequest = { showScreenShareConfirm = false },
-                    title = { Text("Share your screen?") },
-                    text = { Text("Everything visible in the selected screen or app may be shared with meeting participants. Avoid opening private information or notifications.") },
-                    confirmButton = {
-                        Button(onClick = {
-                            showScreenShareConfirm = false
-                            screenShareLauncher.launch(mediaProjectionManager.createScreenCaptureIntent())
-                        }) { Text("Continue") }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { showScreenShareConfirm = false }) { Text("Cancel") }
-                    }
                 )
             }
             
@@ -386,7 +351,9 @@ fun LiveRoomScreen(
 }
 
 @Composable
-private fun TopMeetingBar(meetingCode: String, participantCount: Int) {
+private fun TopMeetingBar(meetingCode: String, participantCount: Int, onMoreClick: () -> Unit) {
+    val clipboardManager = LocalClipboardManager.current
+    val context = LocalContext.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -419,6 +386,17 @@ private fun TopMeetingBar(meetingCode: String, participantCount: Int) {
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium
                 )
+            }
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = {
+                clipboardManager.setText(AnnotatedString(meetingCode))
+                Toast.makeText(context, "Meeting code copied", Toast.LENGTH_SHORT).show()
+            }) {
+                Icon(Icons.Default.ContentCopy, contentDescription = "Copy Code", tint = TextPrimary)
+            }
+            IconButton(onClick = onMoreClick) {
+                Icon(Icons.Default.MoreVert, contentDescription = "More Options", tint = TextPrimary)
             }
         }
     }
@@ -799,7 +777,6 @@ private fun BottomControlBar(
     onMicToggle: () -> Unit,
     onCameraToggle: () -> Unit,
     onSwitchCamera: () -> Unit,
-    onMoreClick: () -> Unit,
     onLeaveClick: () -> Unit,
     enabled: Boolean
 ) {
@@ -848,11 +825,6 @@ private fun BottomControlBar(
                         enabled = enabled
                     )
                 }
-                SecondaryButton(
-                    icon = Icons.Default.MoreVert, 
-                    onClick = onMoreClick,
-                    enabled = enabled
-                )
             }
 
             Surface(
