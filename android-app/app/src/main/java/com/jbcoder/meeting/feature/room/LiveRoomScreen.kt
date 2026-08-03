@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items as lazyItems
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,6 +24,7 @@ import androidx.compose.material.icons.filled.VideocamOff
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.GroupAdd
+import androidx.compose.material.icons.filled.ScreenShare
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -41,6 +43,9 @@ import com.jbcoder.meeting.presentation.theme.MeetingPrimary
 import io.livekit.android.room.participant.Participant
 import io.livekit.android.room.track.VideoTrack
 import io.livekit.android.renderer.TextureViewRenderer
+import io.livekit.android.room.track.Track
+import android.content.Context
+import android.media.projection.MediaProjectionManager
 
 @Composable
 fun LiveRoomScreen(
@@ -52,7 +57,17 @@ fun LiveRoomScreen(
     val hostState by hostViewModel.state.collectAsState()
     var showLeaveConfirmation by remember { mutableStateOf(false) }
     var showHostControls by remember { mutableStateOf(false) }
+    var showScreenShareConfirm by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    val mediaProjectionManager = remember { context.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager }
+
+    val screenShareLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK && result.data != null) {
+            viewModel.startScreenShare(result.data!!)
+        }
+    }
 
     val audioPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
@@ -198,7 +213,7 @@ fun LiveRoomScreen(
                         IconButton(onClick = { showHostControls = true }) {
                             Icon(
                                 imageVector = Icons.Default.MoreVert,
-                                contentDescription = "Host Controls",
+                                contentDescription = "More meeting options",
                                 tint = MaterialTheme.colorScheme.onBackground
                             )
                         }
@@ -216,6 +231,35 @@ fun LiveRoomScreen(
                             message = uiState.lastError ?: "",
                             modifier = Modifier.padding(horizontal = 16.dp)
                         )
+                    }
+
+                    if (uiState.isScreenSharing) {
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.ScreenShare, contentDescription = null, modifier = Modifier.size(20.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("You're sharing your screen", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
+                                }
+                                TextButton(
+                                    onClick = { viewModel.stopScreenShare() },
+                                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                                ) {
+                                    Text("Stop")
+                                }
+                            }
+                        }
                     }
 
                     // Grid
@@ -262,10 +306,12 @@ fun LiveRoomScreen(
                         )
                     }
                 }
-                
                 if (showHostControls) {
-                    HostControlsSheet(
+                    MoreMenuSheet(
                         state = hostState,
+                        isScreenSharing = uiState.isScreenSharing,
+                        onStartScreenShare = { showScreenShareConfirm = true },
+                        onStopScreenShare = { viewModel.stopScreenShare() },
                         onMuteParticipant = { hostViewModel.muteParticipant(it) },
                         onAskToUnmute = { hostViewModel.askToUnmute(it) },
                         onDisablePublishing = { hostViewModel.disablePublishing(it) },
@@ -274,6 +320,23 @@ fun LiveRoomScreen(
                         onPromoteClick = { id, name -> hostViewModel.showConfirmation(ConfirmationDialogState.PromoteParticipant(id, name)) },
                         onDemoteClick = { id, name -> hostViewModel.showConfirmation(ConfirmationDialogState.DemoteParticipant(id, name)) },
                         onDismiss = { showHostControls = false }
+                    )
+                }
+
+                if (showScreenShareConfirm) {
+                    AlertDialog(
+                        onDismissRequest = { showScreenShareConfirm = false },
+                        title = { Text("Share your screen?") },
+                        text = { Text("Everything visible in the selected screen or app may be shared with meeting participants. Avoid opening private information or notifications.") },
+                        confirmButton = {
+                            Button(onClick = {
+                                showScreenShareConfirm = false
+                                screenShareLauncher.launch(mediaProjectionManager.createScreenCaptureIntent())
+                            }) { Text("Continue") }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showScreenShareConfirm = false }) { Text("Cancel") }
+                        }
                     )
                 }
                 
@@ -359,18 +422,75 @@ fun ParticipantGrid(
         return
     }
 
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(if (participants.size > 2) 2 else 1),
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        items(participants, key = { it.sid.value ?: it.identity?.value ?: it.hashCode().toString() }) { participant ->
-            ParticipantTile(
-                room = room, 
-                participant = participant, 
-                updateTrigger = updateCounter
-            )
+    val screenShareParticipant = participants.firstOrNull { p ->
+        p.videoTrackPublications.any { it.first.source == Track.Source.SCREEN_SHARE && !it.first.muted }
+    }
+
+    if (screenShareParticipant != null) {
+        val screenTrack = screenShareParticipant.videoTrackPublications.firstOrNull { it.first.source == Track.Source.SCREEN_SHARE }?.first?.track as? VideoTrack
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Featured Screen Share
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color.Black)
+            ) {
+                if (screenTrack != null) {
+                    LiveKitVideoRenderer(
+                        room = room,
+                        videoTrack = screenTrack,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+                // Name Overlay
+                Surface(
+                    color = Color.Black.copy(alpha = 0.6f),
+                    shape = RoundedCornerShape(topEnd = 8.dp),
+                    modifier = Modifier.align(Alignment.BottomStart)
+                ) {
+                    Text(
+                        text = "${screenShareParticipant.name ?: "Someone"} is sharing their screen",
+                        color = Color.White,
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Other participants in a small strip
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth().height(120.dp)
+            ) {
+                lazyItems(participants, key = { it.sid.value ?: it.identity?.value ?: it.hashCode().toString() }) { participant ->
+                    ParticipantTile(
+                        room = room,
+                        participant = participant,
+                        updateTrigger = updateCounter,
+                        modifier = Modifier.width(90.dp).fillMaxHeight()
+                    )
+                }
+            }
+        }
+    } else {
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(if (participants.size > 2) 2 else 1),
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(participants, key = { it.sid.value ?: it.identity?.value ?: it.hashCode().toString() }) { participant ->
+                ParticipantTile(
+                    room = room, 
+                    participant = participant, 
+                    updateTrigger = updateCounter,
+                    modifier = Modifier.fillMaxWidth().aspectRatio(3f / 4f)
+                )
+            }
         }
     }
 }
@@ -404,20 +524,23 @@ fun LiveKitVideoRenderer(
 fun ParticipantTile(
     room: io.livekit.android.room.Room?, 
     participant: Participant, 
-    updateTrigger: Int
+    updateTrigger: Int,
+    modifier: Modifier = Modifier
 ) {
     val videoTracks = remember(updateTrigger, participant) { participant.videoTrackPublications }
     val audioTracks = remember(updateTrigger, participant) { participant.audioTrackPublications }
     val isSpeaking = remember(updateTrigger, participant) { participant.isSpeaking }
     
-    val videoTrack = remember(updateTrigger, videoTracks) { videoTracks.firstOrNull()?.first?.track as? VideoTrack }
+    val videoTrack = remember(updateTrigger, videoTracks) { 
+        videoTracks.firstOrNull { it.first.source == Track.Source.CAMERA }?.first?.track as? VideoTrack 
+    }
     val isAudioMuted = remember(updateTrigger, audioTracks) { audioTracks.firstOrNull()?.first?.muted ?: true }
-    val isVideoMuted = remember(updateTrigger, videoTracks) { videoTracks.firstOrNull()?.first?.muted ?: true }
+    val isVideoMuted = remember(updateTrigger, videoTracks) { 
+        videoTracks.firstOrNull { it.first.source == Track.Source.CAMERA }?.first?.muted ?: true 
+    }
 
     Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .aspectRatio(3f / 4f)
+        modifier = modifier
             .clip(RoundedCornerShape(16.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .border(

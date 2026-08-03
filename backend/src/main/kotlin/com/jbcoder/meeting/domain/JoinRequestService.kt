@@ -80,7 +80,7 @@ object JoinRequestService {
                 it[this.livekitIdentity] = livekitIdentity
                 it[this.displayName] = command.displayName
                 it[role] = ParticipantRole.PARTICIPANT.name
-                it[state] = ParticipantState.WAITING.name
+                it[state] = if (meetingLocked.waitingRoomEnabled) ParticipantState.WAITING.name else ParticipantState.ADMITTED.name
                 it[requestedAt] = Instant.now()
                 it[createdAt] = Instant.now()
                 it[updatedAt] = Instant.now()
@@ -93,8 +93,11 @@ object JoinRequestService {
                 it[id] = joinRequestId
                 it[meetingId] = meeting.id
                 it[participantSessionId] = participantId
-                it[status] = JoinRequestStatus.PENDING.name
+                it[status] = if (meetingLocked.waitingRoomEnabled) JoinRequestStatus.PENDING.name else JoinRequestStatus.ADMITTED.name
                 it[requestedAt] = Instant.now()
+                if (!meetingLocked.waitingRoomEnabled) {
+                    it[reviewedAt] = Instant.now()
+                }
                 it[this.expiresAt] = expiresAt
                 if (command.mobileSessionId != null) {
                     it[deviceSessionId] = command.mobileSessionId

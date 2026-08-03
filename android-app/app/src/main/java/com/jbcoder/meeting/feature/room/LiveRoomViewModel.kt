@@ -23,6 +23,14 @@ class LiveRoomViewModel @Inject constructor(
         roomSessionManager.switchCamera()
     }
 
+    fun startScreenShare(intentData: android.content.Intent) {
+        roomSessionManager.startScreenShare(intentData)
+    }
+
+    fun stopScreenShare() {
+        roomSessionManager.stopScreenShare()
+    }
+
     fun disconnect() {
         roomSessionManager.disconnect()
     }

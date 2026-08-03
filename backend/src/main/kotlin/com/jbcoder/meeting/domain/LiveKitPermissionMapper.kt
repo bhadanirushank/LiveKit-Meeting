@@ -33,7 +33,8 @@ object LiveKitPermissionMapper {
                 }
                 canPublishData = true // Data messaging allowed for chat
                 sources.addAll(listOf("camera", "microphone"))
-                if (screenShareAllowed) {
+                // Let any publishing participant share their screen
+                if (!publishRestricted) {
                     sources.addAll(listOf("screen_share", "screen_share_audio"))
                 }
             }

@@ -15,6 +15,8 @@ import io.livekit.android.room.track.LocalAudioTrack
 import io.livekit.android.room.track.LocalVideoTrack
 import io.livekit.android.room.track.Track
 import io.livekit.android.room.track.VideoTrack
+import io.livekit.android.room.track.screencapture.ScreenCaptureParams
+import android.content.Intent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -46,6 +48,7 @@ data class RoomUiState(
     val isCameraEnabled: Boolean = false,
     val hasAudioPermission: Boolean = false,
     val hasCameraPermission: Boolean = false,
+    val isScreenSharing: Boolean = false,
     val lastError: String? = null
 )
 
@@ -179,6 +182,36 @@ class RoomSessionManager @Inject constructor(
             } catch (e: Exception) {
                 android.util.Log.e("RoomSessionManager", "Failed to switch camera", e)
                 _uiState.update { it.copy(lastError = "Switch Camera Error: ${e.message}") }
+            }
+        }
+    }
+
+    fun startScreenShare(intentData: Intent) {
+        val r = room ?: return
+        scope.launch {
+            try {
+                r.localParticipant.setScreenShareEnabled(
+                    enabled = true,
+                    screenCaptureParams = ScreenCaptureParams(mediaProjectionPermissionResultData = intentData)
+                )
+                _uiState.update { it.copy(isScreenSharing = true, lastError = null) }
+                updateParticipants()
+            } catch (e: Exception) {
+                android.util.Log.e("RoomSessionManager", "Failed to start screen share", e)
+                _uiState.update { it.copy(lastError = "Screen Share Error: ${e.message}") }
+            }
+        }
+    }
+
+    fun stopScreenShare() {
+        val r = room ?: return
+        scope.launch {
+            try {
+                r.localParticipant.setScreenShareEnabled(false)
+                _uiState.update { it.copy(isScreenSharing = false, lastError = null) }
+                updateParticipants()
+            } catch (e: Exception) {
+                android.util.Log.e("RoomSessionManager", "Failed to stop screen share", e)
             }
         }
     }

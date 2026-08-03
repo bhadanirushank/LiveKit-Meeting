@@ -21,7 +21,7 @@ data class CreateMeetingRequest(
     val passcode: String? = null,
     val waitingRoomEnabled: Boolean = true,
     val joinBeforeHostEnabled: Boolean = false,
-    val maximumParticipants: Int = 100,
+    val maximumParticipants: Int = 1000,
     val idempotencyKey: String = UUID.randomUUID().toString()
 )
 

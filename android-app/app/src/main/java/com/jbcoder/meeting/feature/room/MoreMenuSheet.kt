@@ -19,8 +19,11 @@ import com.jbcoder.meeting.presentation.theme.MeetingPrimary
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HostControlsSheet(
+fun MoreMenuSheet(
     state: HostControlsUiState,
+    isScreenSharing: Boolean,
+    onStartScreenShare: () -> Unit,
+    onStopScreenShare: () -> Unit,
     onMuteParticipant: (String) -> Unit,
     onAskToUnmute: (String) -> Unit,
     onDisablePublishing: (String) -> Unit,
@@ -45,14 +48,46 @@ fun HostControlsSheet(
                 .padding(horizontal = 24.dp)
         ) {
             Text(
-                text = "Host Controls",
+                text = "More Options",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(bottom = 24.dp)
+                modifier = Modifier.padding(bottom = 16.dp)
             )
 
-
+            // Meeting Actions
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 24.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                if (isScreenSharing) {
+                    Button(
+                        onClick = {
+                            onStopScreenShare()
+                            onDismiss()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Icon(Icons.Default.StopScreenShare, contentDescription = "Stop sharing")
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Stop sharing")
+                    }
+                } else {
+                    Button(
+                        onClick = {
+                            onStartScreenShare()
+                            onDismiss()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = MeetingPrimary)
+                    ) {
+                        Icon(Icons.Default.ScreenShare, contentDescription = "Share screen")
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Share screen")
+                    }
+                }
+            }
 
             Text(
                 text = "Participants (${state.participants.size})",

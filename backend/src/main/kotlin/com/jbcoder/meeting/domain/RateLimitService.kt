@@ -23,7 +23,7 @@ object RateLimitService {
         // Device: 10 per minute
         // Meeting: 100 per minute
         
-        val limit = System.getProperty("RATE_LIMIT")?.toIntOrNull() ?: 20
+        val limit = System.getProperty("RATE_LIMIT")?.toIntOrNull() ?: 200
         val ipCount = RedisService.incrementAndGetAtomic(ipKey, 60).count
         if (ipCount > limit) return false
         
