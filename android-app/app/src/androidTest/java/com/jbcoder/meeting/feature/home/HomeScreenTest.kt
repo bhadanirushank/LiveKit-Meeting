@@ -68,7 +68,7 @@ class HomeScreenTest {
         composeTestRule.setContent {
             MeetingTheme {
                 HomeScreenContent(
-                    uiState = HomeUiState.Offline,
+                    uiState = HomeUiState.Offline(),
                     onNavigateToCreate = { },
                     onNavigateToJoin = { },
                     onRetry = { retryClicked = true }

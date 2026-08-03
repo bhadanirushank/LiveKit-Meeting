@@ -13,7 +13,7 @@ import javax.inject.Inject
 sealed class HomeUiState {
     object Initializing : HomeUiState()
     object Ready : HomeUiState()
-    object Offline : HomeUiState()
+    data class Offline(val error: String? = null) : HomeUiState()
     data class Error(val message: String) : HomeUiState()
 }
 
@@ -34,7 +34,7 @@ class HomeViewModel @Inject constructor(
                 _uiState.value = when (state) {
                     com.jbcoder.meeting.network.SessionState.INITIALIZING -> HomeUiState.Initializing
                     com.jbcoder.meeting.network.SessionState.READY -> HomeUiState.Ready
-                    com.jbcoder.meeting.network.SessionState.OFFLINE -> HomeUiState.Offline
+                    is com.jbcoder.meeting.network.SessionState.OFFLINE -> HomeUiState.Offline(state.error)
                     com.jbcoder.meeting.network.SessionState.ERROR -> HomeUiState.Error("Session failed to initialize")
                 }
             }

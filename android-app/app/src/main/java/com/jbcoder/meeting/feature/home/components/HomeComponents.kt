@@ -152,7 +152,7 @@ fun MeetingStatusIndicator(
     val (icon, tint, text) = when (status) {
         is HomeUiState.Ready -> Triple(Icons.Default.CheckCircle, MeetingSuccess, "Ready to connect")
         is HomeUiState.Initializing -> Triple(Icons.Default.Sync, MeetingConnecting, "Initializing...")
-        is HomeUiState.Offline -> Triple(Icons.Default.Error, MeetingError, "Backend is offline")
+        is HomeUiState.Offline -> Triple(Icons.Default.Error, MeetingError, status.error ?: "Backend is offline")
         is HomeUiState.Error -> Triple(Icons.Default.Error, MeetingError, "Connection error")
     }
 

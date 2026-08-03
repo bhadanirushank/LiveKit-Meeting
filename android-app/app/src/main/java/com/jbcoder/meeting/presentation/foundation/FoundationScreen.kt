@@ -81,7 +81,7 @@ fun FoundationScreenContent(
                         color = MaterialTheme.colorScheme.onBackground
                     )
                     Spacer(modifier = Modifier.height(16.dp))
-                    MeetingInlineError(message = "Backend is offline or unreachable.")
+                    MeetingInlineError(message = state.error ?: "Backend is offline or unreachable.")
                     Spacer(modifier = Modifier.height(32.dp))
                     MeetingSecondaryButton(
                         text = "Retry Connection",

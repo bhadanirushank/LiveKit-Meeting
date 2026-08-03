@@ -63,7 +63,7 @@ class FoundationScreenTest {
         var retryCalled = false
         composeTestRule.setContent {
             FoundationScreenContent(
-                state = FoundationState.Offline,
+                state = FoundationState.Offline(),
                 onReady = {},
                 onRetry = { retryCalled = true }
             )

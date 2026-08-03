@@ -13,7 +13,7 @@ sealed class FoundationState {
     object Loading : FoundationState()
     data class Error(val message: String) : FoundationState()
     object Ready : FoundationState()
-    object Offline : FoundationState()
+    data class Offline(val error: String? = null) : FoundationState()
 }
 
 @HiltViewModel
@@ -35,7 +35,7 @@ class FoundationViewModel @Inject constructor(
                     com.jbcoder.meeting.network.SessionState.INITIALIZING -> _state.value = FoundationState.Loading
                     com.jbcoder.meeting.network.SessionState.READY -> _state.value = FoundationState.Ready
                     com.jbcoder.meeting.network.SessionState.ERROR -> _state.value = FoundationState.Error("Session failed to initialize")
-                    com.jbcoder.meeting.network.SessionState.OFFLINE -> _state.value = FoundationState.Offline
+                    is com.jbcoder.meeting.network.SessionState.OFFLINE -> _state.value = FoundationState.Offline(netState.error)
                 }
             }
         }

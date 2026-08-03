@@ -159,7 +159,7 @@ fun HomeScreenInitializingPreview() {
 fun HomeScreenOfflineNarrowPreview() {
     MeetingTheme {
         HomeScreenContent(
-            uiState = HomeUiState.Offline,
+            uiState = HomeUiState.Offline("Network unreachable"),
             onNavigateToCreate = {},
             onNavigateToJoin = {},
             onRetry = {}

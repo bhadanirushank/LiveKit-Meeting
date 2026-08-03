@@ -14,11 +14,11 @@ import java.util.TimeZone
 import javax.inject.Inject
 import javax.inject.Singleton
 
-enum class SessionState {
-    INITIALIZING,
-    READY,
-    ERROR,
-    OFFLINE
+sealed class SessionState {
+    object INITIALIZING : SessionState()
+    object READY : SessionState()
+    object ERROR : SessionState()
+    data class OFFLINE(val error: String? = null) : SessionState()
 }
 
 @Singleton
@@ -27,7 +27,7 @@ class SessionCoordinator @Inject constructor(
     private val secureSessionStorage: SecureSessionStorage,
     private val installationIdProvider: InstallationIdProvider
 ) {
-    private val _sessionState = MutableStateFlow(SessionState.INITIALIZING)
+    private val _sessionState = MutableStateFlow<SessionState>(SessionState.INITIALIZING)
     val sessionState: StateFlow<SessionState> = _sessionState.asStateFlow()
 
     private val refreshMutex = Mutex()
@@ -64,7 +64,7 @@ class SessionCoordinator @Inject constructor(
                 currentAttempt++
                 if (currentAttempt >= maxRetries) {
                     // Check if it's network error vs unknown
-                    _sessionState.value = SessionState.OFFLINE
+                    _sessionState.value = SessionState.OFFLINE(e.message ?: e.toString())
                     return
                 }
                 
