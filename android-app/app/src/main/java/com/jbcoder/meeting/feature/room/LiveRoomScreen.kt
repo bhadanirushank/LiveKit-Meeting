@@ -412,6 +412,7 @@ fun ParticipantTile(
     
     val videoTrack = remember(updateTrigger, videoTracks) { videoTracks.firstOrNull()?.first?.track as? VideoTrack }
     val isAudioMuted = remember(updateTrigger, audioTracks) { audioTracks.firstOrNull()?.first?.muted ?: true }
+    val isVideoMuted = remember(updateTrigger, videoTracks) { videoTracks.firstOrNull()?.first?.muted ?: true }
 
     Box(
         modifier = Modifier
@@ -425,7 +426,7 @@ fun ParticipantTile(
                 shape = RoundedCornerShape(16.dp)
             )
     ) {
-        if (videoTrack != null) {
+        if (videoTrack != null && !isVideoMuted) {
             LiveKitVideoRenderer(
                 room = room,
                 videoTrack = videoTrack,
