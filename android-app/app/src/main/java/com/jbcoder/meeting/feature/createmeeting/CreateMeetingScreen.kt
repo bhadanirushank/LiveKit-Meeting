@@ -73,93 +73,13 @@ fun CreateMeetingScreen(
                 )
 
                 MeetingTextField(
-                    value = formState.title,
-                    onValueChange = { viewModel.updateTitle(it); viewModel.resetError() },
-                    label = "Meeting Title",
-                    placeholder = "e.g. Weekly Standup",
+                    value = formState.displayName,
+                    onValueChange = { viewModel.updateDisplayName(it); viewModel.resetError() },
+                    label = "Your Name",
+                    placeholder = "e.g. Jane Doe",
                     enabled = uiState !is CreateMeetingUiState.Loading
                 )
 
-                MeetingTextField(
-                    value = formState.maximumParticipants,
-                    onValueChange = { viewModel.updateMaximumParticipants(it); viewModel.resetError() },
-                    label = "Max Participants",
-                    placeholder = "100",
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    enabled = uiState !is CreateMeetingUiState.Loading
-                )
-
-                MeetingTextField(
-                    value = formState.passcode,
-                    onValueChange = { viewModel.updatePasscode(it); viewModel.resetError() },
-                    label = "Passcode (Optional)",
-                    placeholder = "Leave blank for no passcode",
-                    enabled = uiState !is CreateMeetingUiState.Loading
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                Surface(
-                    color = MaterialTheme.colorScheme.surface,
-                    shape = MaterialTheme.shapes.medium,
-                    tonalElevation = 1.dp
-                ) {
-                    Column {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "Waiting Room",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                                Text(
-                                    text = "Participants must be admitted by a host",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            Switch(
-                                checked = formState.waitingRoomEnabled,
-                                onCheckedChange = { viewModel.updateWaitingRoomEnabled(it); viewModel.resetError() },
-                                enabled = uiState !is CreateMeetingUiState.Loading
-                            )
-                        }
-                        
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                        
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "Join Before Host",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                                Text(
-                                    text = "Allow participants to enter the room before you",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            Switch(
-                                checked = formState.joinBeforeHostEnabled,
-                                onCheckedChange = { viewModel.updateJoinBeforeHostEnabled(it); viewModel.resetError() },
-                                enabled = uiState !is CreateMeetingUiState.Loading
-                            )
-                        }
-                    }
-                }
 
                 if (uiState is CreateMeetingUiState.Error) {
                     MeetingInlineError(message = (uiState as CreateMeetingUiState.Error).message)

@@ -56,90 +56,9 @@ class HostModerationViewModel @Inject constructor(
 
     fun setMeetingCode(code: String) {
         this.meetingCode = code
-        checkAndStartPolling()
     }
 
-    private fun checkAndStartPolling() {
-        if (_state.value.role == MeetingRole.HOST && meetingCode != null) {
-            startPollingWaitingRoom()
-        }
-    }
 
-    private var waitingRoomPollingJob: Job? = null
-
-    private fun startPollingWaitingRoom() {
-        if (waitingRoomPollingJob != null) return // Already polling
-        
-        waitingRoomPollingJob = viewModelScope.launch {
-            appLifecycleManager.isForeground.collectLatest { isForeground ->
-                if (isForeground) {
-                    while (isActive) {
-                        fetchWaitingRoom()
-                        delay(5000) // Poll every 5 seconds
-                    }
-                }
-            }
-        }
-    }
-
-    private suspend fun fetchWaitingRoom() {
-        val code = meetingCode ?: return
-        try {
-            val response = hostApiService.getWaitingRoom(code)
-            if (response.isSuccessful) {
-                response.body()?.let { body ->
-                    _state.update { it.copy(pendingRequests = body.requests) }
-                }
-            } else if (response.code() == 401 || response.code() == 403) {
-                handleError(response.code())
-            }
-        } catch (e: Exception) {
-            // Ignore polling errors to not spam UI
-        }
-    }
-
-    fun showWaitingRoomDialog() {
-        _state.update { it.copy(isWaitingRoomDialogVisible = true) }
-    }
-
-    fun hideWaitingRoomDialog() {
-        _state.update { it.copy(isWaitingRoomDialogVisible = false) }
-    }
-
-    fun admitWaitingRoomParticipant(requestId: String) {
-        val code = meetingCode ?: return
-        val actionId = "admit-$requestId"
-        viewModelScope.launch {
-            try {
-                hostApiService.admitParticipant(
-                    meetingCode = code,
-                    requestId = requestId,
-                    installationId = installationId,
-                    idempotencyKey = getIdempotencyKey(actionId)
-                )
-                clearIdempotencyKey(actionId)
-                fetchWaitingRoom()
-            } catch (e: Exception) {
-                _state.update { it.copy(message = "Failed to admit: ${e.message}") }
-            }
-        }
-    }
-
-    fun rejectWaitingRoomParticipant(requestId: String) {
-        val code = meetingCode ?: return
-        viewModelScope.launch {
-            try {
-                hostApiService.rejectParticipant(
-                    meetingCode = code,
-                    requestId = requestId,
-                    request = com.jbcoder.meeting.network.RejectRequest()
-                )
-                fetchWaitingRoom()
-            } catch (e: Exception) {
-                _state.update { it.copy(message = "Failed to reject: ${e.message}") }
-            }
-        }
-    }
 
     private fun updateParticipantsFromRoom(livekitParticipants: List<Participant>) {
         val mapped = livekitParticipants.mapNotNull { p ->
@@ -170,9 +89,7 @@ class HostModerationViewModel @Inject constructor(
             
             // If the local participant is parsed as Host, update our state
             if (isLocalParticipant) {
-                val roleChanged = _state.value.role != role
                 _state.update { it.copy(role = role) }
-                if (roleChanged) checkAndStartPolling()
             }
 
             // Preserve existing action states
@@ -433,6 +350,5 @@ class HostModerationViewModel @Inject constructor(
     }
     override fun onCleared() {
         super.onCleared()
-        waitingRoomPollingJob?.cancel()
     }
 }

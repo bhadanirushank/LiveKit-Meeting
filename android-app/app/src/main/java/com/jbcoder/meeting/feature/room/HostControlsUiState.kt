@@ -35,9 +35,7 @@ data class HostControlsUiState(
     val participants: List<ModerationParticipantUi> = emptyList(),
     val isActionLoading: Boolean = false,
     val message: String? = null,
-    val activeConfirmation: ConfirmationDialogState? = null,
-    val pendingRequests: List<com.jbcoder.meeting.network.PendingJoinRequest> = emptyList(),
-    val isWaitingRoomDialogVisible: Boolean = false
+    val activeConfirmation: ConfirmationDialogState? = null
 )
 
 sealed interface ConfirmationDialogState {

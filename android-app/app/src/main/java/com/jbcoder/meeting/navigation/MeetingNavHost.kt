@@ -33,62 +33,16 @@ fun MeetingNavHost() {
         composable("createMeeting") {
             CreateMeetingScreen(
                 onNavigateBack = { navController.popBackStack() },
-                onSuccess = { navController.navigate("waitingRoomRouter") { popUpTo("home") } }
+                onSuccess = { navController.navigate("roomPreJoin") { popUpTo("home") } }
             )
         }
         composable("joinMeeting") {
             JoinMeetingScreen(
                 onNavigateBack = { navController.popBackStack() },
-                onSuccess = { navController.navigate("waitingRoomRouter") { popUpTo("home") } }
+                onSuccess = { navController.navigate("roomPreJoin") { popUpTo("home") } }
             )
         }
-        composable("waitingRoomRouter") {
-            com.jbcoder.meeting.feature.waitingroom.WaitingRoomRouterScreen(
-                onNavigateToHost = {
-                    navController.navigate("hostWaitingRoom") {
-                        popUpTo("home")
-                    }
-                },
-                onNavigateToParticipant = {
-                    navController.navigate("participantWaitingRoom") {
-                        popUpTo("home")
-                    }
-                },
-                onNavigateHome = {
-                    navController.navigate("home") {
-                        popUpTo("home") { inclusive = true }
-                    }
-                }
-            )
-        }
-        composable("hostWaitingRoom") {
-            com.jbcoder.meeting.feature.waitingroom.HostWaitingRoomScreen(
-                onNavigateHome = {
-                    navController.navigate("home") {
-                        popUpTo("home") { inclusive = true }
-                    }
-                },
-                onNavigateLiveRoom = {
-                    navController.navigate("roomPreJoin") {
-                        popUpTo("home")
-                    }
-                }
-            )
-        }
-        composable("participantWaitingRoom") {
-            com.jbcoder.meeting.feature.waitingroom.ParticipantWaitingRoomScreen(
-                onNavigateHome = {
-                    navController.navigate("home") {
-                        popUpTo("home") { inclusive = true }
-                    }
-                },
-                onNavigateLiveRoom = {
-                    navController.navigate("roomPreJoin") {
-                        popUpTo("home")
-                    }
-                }
-            )
-        }
+
         composable("roomPreJoin") {
             com.jbcoder.meeting.feature.room.RoomPreJoinScreen(
                 onNavigateLiveRoom = {

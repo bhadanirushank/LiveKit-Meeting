@@ -10,7 +10,8 @@ sealed interface RoomConnectionHandoff {
     data class HostReady(
         val publicMeetingCode: String,
         val livekitToken: String,
-        val livekitRoomName: String?
+        val livekitRoomName: String?,
+        val displayName: String
     ) : RoomConnectionHandoff
 
     data class ParticipantReady(

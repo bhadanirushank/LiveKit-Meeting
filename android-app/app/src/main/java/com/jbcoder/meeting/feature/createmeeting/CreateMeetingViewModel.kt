@@ -2,11 +2,14 @@ package com.jbcoder.meeting.feature.createmeeting
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.jbcoder.meeting.data.meeting.MeetingEntryHandoff
-import com.jbcoder.meeting.data.meeting.MeetingEntryHandoffStore
+
 import com.jbcoder.meeting.data.meeting.MeetingError
 import com.jbcoder.meeting.data.meeting.MeetingRepository
+import com.jbcoder.meeting.data.meeting.HostSessionStore
+import com.jbcoder.meeting.data.meeting.RoomConnectionHandoff
+import com.jbcoder.meeting.data.meeting.RoomConnectionHandoffStore
 import com.jbcoder.meeting.network.CreateMeetingRequest
+import com.jbcoder.meeting.network.HostExchangeRequest
 import com.jbcoder.meeting.storage.InstallationIdProvider
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,17 +28,14 @@ sealed interface CreateMeetingUiState {
 }
 
 data class CreateMeetingFormState(
-    val title: String = "",
-    val maximumParticipants: String = "100",
-    val waitingRoomEnabled: Boolean = true,
-    val joinBeforeHostEnabled: Boolean = false,
-    val passcode: String = ""
+    val displayName: String = ""
 )
 
 @HiltViewModel
 class CreateMeetingViewModel @Inject constructor(
     private val repository: MeetingRepository,
-    private val handoffStore: MeetingEntryHandoffStore,
+    private val hostSessionStore: HostSessionStore,
+    private val roomConnectionHandoffStore: RoomConnectionHandoffStore,
     private val installationIdProvider: InstallationIdProvider
 ) : ViewModel() {
 
@@ -49,24 +49,8 @@ class CreateMeetingViewModel @Inject constructor(
 
     private var lastAttemptedRequest: CreateMeetingRequest? = null
 
-    fun updateTitle(title: String) {
-        _formState.update { it.copy(title = title) }
-    }
-
-    fun updateMaximumParticipants(max: String) {
-        _formState.update { it.copy(maximumParticipants = max) }
-    }
-
-    fun updateWaitingRoomEnabled(enabled: Boolean) {
-        _formState.update { it.copy(waitingRoomEnabled = enabled) }
-    }
-
-    fun updateJoinBeforeHostEnabled(enabled: Boolean) {
-        _formState.update { it.copy(joinBeforeHostEnabled = enabled) }
-    }
-
-    fun updatePasscode(passcode: String) {
-        _formState.update { it.copy(passcode = passcode) }
+    fun updateDisplayName(name: String) {
+        _formState.update { it.copy(displayName = name) }
     }
     
     fun resetError() {
@@ -81,32 +65,20 @@ class CreateMeetingViewModel @Inject constructor(
         }
 
         val form = _formState.value
-        val title = form.title.trim()
-        if (title.isBlank() || title.length > 200) {
-            _uiState.value = CreateMeetingUiState.Error("Title must be between 1 and 200 characters")
-            return
-        }
-
-        val maxParticipants = form.maximumParticipants.toIntOrNull()
-        if (maxParticipants == null || maxParticipants !in 2..1000) {
-            _uiState.value = CreateMeetingUiState.Error("Maximum participants must be between 2 and 1000")
-            return
-        }
-
-        val pass = if (form.passcode.isNotBlank()) form.passcode.trim() else null
-        if (pass != null && pass.length !in 4..20) {
-            _uiState.value = CreateMeetingUiState.Error("Passcode must be between 4 and 20 characters")
+        val name = form.displayName.trim()
+        if (name.isBlank() || name.length > 50) {
+            _uiState.value = CreateMeetingUiState.Error("Display name must be between 1 and 50 characters")
             return
         }
 
         _uiState.value = CreateMeetingUiState.Loading
 
         val currentPayload = CreateMeetingRequest(
-            title = title,
-            passcode = pass,
-            waitingRoomEnabled = form.waitingRoomEnabled,
-            joinBeforeHostEnabled = form.joinBeforeHostEnabled,
-            maximumParticipants = maxParticipants,
+            title = "$name's Meeting",
+            passcode = null,
+            waitingRoomEnabled = false,
+            joinBeforeHostEnabled = true,
+            maximumParticipants = 100,
             idempotencyKey = ""
         )
 
@@ -130,17 +102,46 @@ class CreateMeetingViewModel @Inject constructor(
 
             if (result.isSuccess) {
                 val response = result.getOrThrow()
-                handoffStore.setHandoff(
-                    MeetingEntryHandoff.HostCreated(
+                
+                // 2. Exchange host session
+                val exchangeReq = HostExchangeRequest(response.publicMeetingCode, response.hostSecret)
+                val exchangeResult = repository.exchangeHostSession(exchangeReq, installationId)
+                if (exchangeResult.isFailure) {
+                    _uiState.value = CreateMeetingUiState.Error(exchangeResult.exceptionOrNull()?.message ?: "Authentication failed")
+                    return@launch
+                }
+                val exchangeResponse = exchangeResult.getOrThrow()
+                hostSessionStore.setHostCredential(exchangeResponse.accessToken)
+
+                // 3. Start meeting
+                val startResult = repository.startMeeting(response.publicMeetingCode, installationId)
+                if (startResult.isFailure) {
+                    _uiState.value = CreateMeetingUiState.Error(startResult.exceptionOrNull()?.message ?: "Failed to start meeting")
+                    return@launch
+                }
+
+                // 4. Get LiveKit token
+                val tokenResult = repository.getHostLiveKitToken()
+                if (tokenResult.isFailure) {
+                    _uiState.value = CreateMeetingUiState.Error(tokenResult.exceptionOrNull()?.message ?: "Failed to get LiveKit token")
+                    return@launch
+                }
+                
+                val token = tokenResult.getOrThrow().token
+                if (token == null) {
+                    _uiState.value = CreateMeetingUiState.Error("LiveKit token missing")
+                    return@launch
+                }
+
+                roomConnectionHandoffStore.setHandoff(
+                    RoomConnectionHandoff.HostReady(
                         publicMeetingCode = response.publicMeetingCode,
-                        hostSecret = response.hostSecret,
+                        livekitToken = token,
                         livekitRoomName = response.livekitRoomName,
-                        title = response.title,
-                        waitingRoomEnabled = response.waitingRoomEnabled,
-                        joinBeforeHostEnabled = response.joinBeforeHostEnabled,
-                        maximumParticipants = response.maximumParticipants
+                        displayName = name
                     )
                 )
+
                 // Generate a new idempotency key so next time they visit it's fresh
                 idempotencyKey = UUID.randomUUID().toString()
                 lastAttemptedRequest = null

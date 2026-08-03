@@ -1,6 +1,6 @@
 package com.jbcoder.meeting.feature.joinmeeting
 
-import com.jbcoder.meeting.data.meeting.MeetingEntryHandoffStore
+import com.jbcoder.meeting.data.meeting.RoomConnectionHandoffStore
 import com.jbcoder.meeting.data.meeting.MeetingRepository
 import com.jbcoder.meeting.network.CreateMeetingRequest
 import com.jbcoder.meeting.network.CreateMeetingResponse
@@ -10,6 +10,15 @@ import com.jbcoder.meeting.network.MeetingApiService
 import com.jbcoder.meeting.network.SessionBootstrapRequest
 import com.jbcoder.meeting.network.SessionCoordinator
 import com.jbcoder.meeting.network.SessionResponse
+import com.jbcoder.meeting.network.HostExchangeRequest
+import com.jbcoder.meeting.network.HostExchangeResponse
+import com.jbcoder.meeting.network.LiveKitTokenResponse
+import com.jbcoder.meeting.network.WaitingRoomResponse
+import com.jbcoder.meeting.network.AdmitResponse
+import com.jbcoder.meeting.network.RejectResponse
+import com.jbcoder.meeting.network.StartMeetingResponse
+import com.jbcoder.meeting.network.JoinRequestStatusResponse
+import com.jbcoder.meeting.network.MeetingStatusResponse
 import com.jbcoder.meeting.security.MobileSessionData
 import com.jbcoder.meeting.security.SecureSessionStorage
 import com.jbcoder.meeting.storage.InstallationIdProvider
@@ -37,6 +46,15 @@ class JoinMeetingViewModelTest {
         override suspend fun submitJoinRequest(meetingCode: String, request: JoinRequestDto): Result<JoinRequestResponse> {
             return Result.success(JoinRequestResponse("req-id", "PENDING"))
         }
+
+        override suspend fun exchangeHostSession(request: HostExchangeRequest, installationId: String): Result<HostExchangeResponse> = throw NotImplementedError()
+        override suspend fun getWaitingRoom(meetingCode: String): Result<WaitingRoomResponse> = throw NotImplementedError()
+        override suspend fun admitParticipant(meetingCode: String, requestId: String, installationId: String): Result<AdmitResponse> = throw NotImplementedError()
+        override suspend fun rejectParticipant(meetingCode: String, requestId: String, reason: String?): Result<RejectResponse> = throw NotImplementedError()
+        override suspend fun startMeeting(meetingCode: String, installationId: String): Result<StartMeetingResponse> = throw NotImplementedError()
+        override suspend fun getHostLiveKitToken(): Result<LiveKitTokenResponse> = throw NotImplementedError()
+        override suspend fun getJoinRequestStatus(requestId: String): Result<JoinRequestStatusResponse> = throw NotImplementedError()
+        override suspend fun getParticipantLiveKitToken(requestId: String): Result<LiveKitTokenResponse> = throw NotImplementedError()
     }
 
     private val fakeStorage = object : SecureSessionStorage {
@@ -66,16 +84,20 @@ class JoinMeetingViewModelTest {
         override suspend fun submitJoinRequest(meetingCode: String, request: JoinRequestDto): Response<JoinRequestResponse> {
             throw NotImplementedError()
         }
+        override suspend fun getJoinRequestStatus(requestId: String): Response<JoinRequestStatusResponse> = throw NotImplementedError()
+        override suspend fun getParticipantLiveKitToken(requestId: String, idempotencyKey: String): Response<LiveKitTokenResponse> = throw NotImplementedError()
+        override suspend fun getMeetingStatus(meetingCode: String): Response<MeetingStatusResponse> = throw NotImplementedError()
+        override suspend fun leaveMeeting(meetingCode: String, idempotencyKey: String): Response<Unit> = throw NotImplementedError()
     }
 
-    private lateinit var handoffStore: MeetingEntryHandoffStore
+    private lateinit var handoffStore: RoomConnectionHandoffStore
     private lateinit var coordinator: SessionCoordinator
     private lateinit var viewModel: JoinMeetingViewModel
 
     @Before
     fun setup() = runTest {
         Dispatchers.setMain(testDispatcher)
-        handoffStore = MeetingEntryHandoffStore()
+        handoffStore = RoomConnectionHandoffStore()
         coordinator = SessionCoordinator(fakeApi, fakeStorage, fakeInstallIdProvider)
         coordinator.initializeSession() // Make it READY
         
@@ -100,15 +122,6 @@ class JoinMeetingViewModelTest {
         // Blank display name
         viewModel.updateMeetingCode("123456789012")
         viewModel.updateDisplayName("   ")
-        viewModel.submit()
-        assertTrue(viewModel.uiState.value is JoinMeetingUiState.Error)
-    }
-
-    @Test
-    fun `PasscodeExactBoundaryTest`() = runTest {
-        viewModel.updateMeetingCode("123456789012")
-        viewModel.updateDisplayName("Valid Name")
-        viewModel.updatePasscode("123") // Too short
         viewModel.submit()
         assertTrue(viewModel.uiState.value is JoinMeetingUiState.Error)
     }

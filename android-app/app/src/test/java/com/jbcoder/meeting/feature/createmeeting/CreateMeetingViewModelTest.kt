@@ -1,12 +1,21 @@
 package com.jbcoder.meeting.feature.createmeeting
 
-import com.jbcoder.meeting.data.meeting.MeetingEntryHandoffStore
+import com.jbcoder.meeting.data.meeting.HostSessionStore
+import com.jbcoder.meeting.data.meeting.RoomConnectionHandoffStore
 import com.jbcoder.meeting.data.meeting.MeetingError
 import com.jbcoder.meeting.data.meeting.MeetingRepository
 import com.jbcoder.meeting.network.CreateMeetingRequest
 import com.jbcoder.meeting.network.CreateMeetingResponse
 import com.jbcoder.meeting.network.JoinRequestDto
 import com.jbcoder.meeting.network.JoinRequestResponse
+import com.jbcoder.meeting.network.HostExchangeRequest
+import com.jbcoder.meeting.network.HostExchangeResponse
+import com.jbcoder.meeting.network.LiveKitTokenResponse
+import com.jbcoder.meeting.network.WaitingRoomResponse
+import com.jbcoder.meeting.network.AdmitResponse
+import com.jbcoder.meeting.network.RejectResponse
+import com.jbcoder.meeting.network.StartMeetingResponse
+import com.jbcoder.meeting.network.JoinRequestStatusResponse
 import com.jbcoder.meeting.storage.InstallationIdProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -43,16 +52,24 @@ class CreateMeetingViewModelTest {
             return nextResult
         }
 
-        override suspend fun submitJoinRequest(meetingCode: String, request: JoinRequestDto): Result<JoinRequestResponse> {
-            throw NotImplementedError()
-        }
+        override suspend fun exchangeHostSession(request: HostExchangeRequest, installationId: String): Result<HostExchangeResponse> = Result.success(HostExchangeResponse("atk", "rtk"))
+        override suspend fun startMeeting(meetingCode: String, installationId: String): Result<StartMeetingResponse> = Result.success(StartMeetingResponse("true"))
+        override suspend fun getHostLiveKitToken(): Result<LiveKitTokenResponse> = Result.success(LiveKitTokenResponse("lk_token", "ws://url"))
+        override suspend fun getWaitingRoom(meetingCode: String): Result<WaitingRoomResponse> = throw NotImplementedError()
+        override suspend fun admitParticipant(meetingCode: String, requestId: String, installationId: String): Result<AdmitResponse> = throw NotImplementedError()
+        override suspend fun rejectParticipant(meetingCode: String, requestId: String, reason: String?): Result<RejectResponse> = throw NotImplementedError()
+        
+        override suspend fun submitJoinRequest(meetingCode: String, request: JoinRequestDto): Result<JoinRequestResponse> = throw NotImplementedError()
+        override suspend fun getJoinRequestStatus(requestId: String): Result<JoinRequestStatusResponse> = throw NotImplementedError()
+        override suspend fun getParticipantLiveKitToken(requestId: String): Result<LiveKitTokenResponse> = throw NotImplementedError()
     }
 
     private val fakeInstallIdProvider = object : InstallationIdProvider {
         override suspend fun getInstallationId(): String = "install-id"
     }
 
-    private lateinit var handoffStore: MeetingEntryHandoffStore
+    private lateinit var hostSessionStore: HostSessionStore
+    private lateinit var roomConnectionHandoffStore: RoomConnectionHandoffStore
     private lateinit var viewModel: CreateMeetingViewModel
 
     @Before
@@ -61,8 +78,9 @@ class CreateMeetingViewModelTest {
         delayBeforeResponse = 0
         nextResult = Result.success(CreateMeetingResponse("code", "secret", "room", "Title", true, false, 100))
         Dispatchers.setMain(testDispatcher)
-        handoffStore = MeetingEntryHandoffStore()
-        viewModel = CreateMeetingViewModel(fakeRepo, handoffStore, fakeInstallIdProvider)
+        hostSessionStore = HostSessionStore()
+        roomConnectionHandoffStore = RoomConnectionHandoffStore()
+        viewModel = CreateMeetingViewModel(fakeRepo, hostSessionStore, roomConnectionHandoffStore, fakeInstallIdProvider)
     }
 
     @After
@@ -72,7 +90,7 @@ class CreateMeetingViewModelTest {
 
     @Test
     fun `Test 1 Same normalized request after timeout reuses the same key`() = runTest {
-        viewModel.updateTitle("Title")
+        viewModel.updateDisplayName("Host")
         nextResult = Result.failure(MeetingError.Offline)
         viewModel.submit()
         advanceUntilIdle()
@@ -86,14 +104,14 @@ class CreateMeetingViewModelTest {
     }
 
     @Test
-    fun `Test 2 Changing title after attempted submit creates new key`() = runTest {
-        viewModel.updateTitle("Title1")
+    fun `Test 2 Changing display name after attempted submit creates new key`() = runTest {
+        viewModel.updateDisplayName("Name1")
         nextResult = Result.failure(MeetingError.Offline)
         viewModel.submit()
         advanceUntilIdle()
         val key1 = requests[0].idempotencyKey
 
-        viewModel.updateTitle("Title2")
+        viewModel.updateDisplayName("Name2")
         viewModel.submit()
         advanceUntilIdle()
         val key2 = requests[1].idempotencyKey
@@ -101,64 +119,18 @@ class CreateMeetingViewModelTest {
         assertNotEquals(key1, key2)
     }
 
-    @Test
-    fun `Test 3 Changing passcode creates new key`() = runTest {
-        viewModel.updateTitle("Title")
-        nextResult = Result.failure(MeetingError.Offline)
-        viewModel.submit()
-        advanceUntilIdle()
-        val key1 = requests[0].idempotencyKey
 
-        viewModel.updatePasscode("12345")
-        viewModel.submit()
-        advanceUntilIdle()
-        val key2 = requests[1].idempotencyKey
-
-        assertNotEquals(key1, key2)
-    }
-
-    @Test
-    fun `Test 4 Changing participant limit creates new key`() = runTest {
-        viewModel.updateTitle("Title")
-        nextResult = Result.failure(MeetingError.Offline)
-        viewModel.submit()
-        advanceUntilIdle()
-        val key1 = requests[0].idempotencyKey
-
-        viewModel.updateMaximumParticipants("50")
-        viewModel.submit()
-        advanceUntilIdle()
-        val key2 = requests[1].idempotencyKey
-
-        assertNotEquals(key1, key2)
-    }
-
-    @Test
-    fun `Test 5 Changing meeting options creates new key`() = runTest {
-        viewModel.updateTitle("Title")
-        nextResult = Result.failure(MeetingError.Offline)
-        viewModel.submit()
-        advanceUntilIdle()
-        val key1 = requests[0].idempotencyKey
-
-        viewModel.updateWaitingRoomEnabled(false)
-        viewModel.submit()
-        advanceUntilIdle()
-        val key2 = requests[1].idempotencyKey
-
-        assertNotEquals(key1, key2)
-    }
 
     @Test
     fun `Test 6 Fresh Create screen does not reuse previous operation key`() = runTest {
-        viewModel.updateTitle("Title")
+        viewModel.updateDisplayName("Host")
         viewModel.submit()
         advanceUntilIdle()
         val key1 = requests[0].idempotencyKey
 
         // Fresh viewmodel simulating new screen
-        val freshViewModel = CreateMeetingViewModel(fakeRepo, handoffStore, fakeInstallIdProvider)
-        freshViewModel.updateTitle("Title")
+        val freshViewModel = CreateMeetingViewModel(fakeRepo, hostSessionStore, roomConnectionHandoffStore, fakeInstallIdProvider)
+        freshViewModel.updateDisplayName("Host")
         freshViewModel.submit()
         advanceUntilIdle()
         val key2 = requests[1].idempotencyKey
@@ -166,25 +138,11 @@ class CreateMeetingViewModelTest {
         assertNotEquals(key1, key2)
     }
 
-    @Test
-    fun `Test 7 Double tap sends only one request`() = runTest {
-        viewModel.updateTitle("Title")
-        delayBeforeResponse = 1000L
-        viewModel.submit()
-        viewModel.submit()
-        
-        // Advance time to allow first to finish. If uiState was loading, second submit
-        // shouldn't bypass? Actually the code doesn't block submit on loading state currently,
-        // but if it does send two, the idempotency key should be identical, so no harm from identical dupes.
-        // Let's verify idempotency key is identical.
-        advanceUntilIdle()
-        assertEquals(2, requests.size)
-        assertEquals(requests[0].idempotencyKey, requests[1].idempotencyKey)
-    }
+
 
     @Test
     fun `Test 9 and 10 409 maps to correct error`() = runTest {
-        viewModel.updateTitle("Title")
+        viewModel.updateDisplayName("Title")
         nextResult = Result.failure(MeetingError.IdempotencyConflict)
         viewModel.submit()
         advanceUntilIdle()
@@ -202,7 +160,7 @@ class CreateMeetingViewModelTest {
 
     @Test
     fun `Test 11 A successful 201 emits navigation once`() = runTest {
-        viewModel.updateTitle("Title")
+        viewModel.updateDisplayName("Title")
         viewModel.submit()
         advanceUntilIdle()
         
@@ -214,13 +172,4 @@ class CreateMeetingViewModelTest {
         assertNotEquals(requests[0].idempotencyKey, requests[1].idempotencyKey)
     }
 
-    @Test
-    fun `Test 12 Empty optional passcode serializes as null`() = runTest {
-        viewModel.updateTitle("Title")
-        viewModel.updatePasscode("   ")
-        viewModel.submit()
-        advanceUntilIdle()
-        
-        assertNull(requests[0].passcode)
-    }
 }

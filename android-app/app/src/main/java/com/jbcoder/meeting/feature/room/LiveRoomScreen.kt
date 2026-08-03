@@ -195,25 +195,7 @@ fun LiveRoomScreen(
                             )
                         }
 
-                        if (hostState.role == MeetingRole.HOST) {
-                            IconButton(onClick = { hostViewModel.showWaitingRoomDialog() }) {
-                                BadgedBox(
-                                    badge = {
-                                        if (hostState.pendingRequests.isNotEmpty()) {
-                                            Badge(containerColor = MeetingPrimary) { 
-                                                Text(hostState.pendingRequests.size.toString(), color = Color.White) 
-                                            }
-                                        }
-                                    }
-                                ) {
-                                    Icon(
-                                        Icons.Default.GroupAdd, 
-                                        contentDescription = "Waiting Room", 
-                                        tint = MaterialTheme.colorScheme.onBackground
-                                    )
-                                }
-                            }
-                        }
+
                     }
 
                     if (state is RoomState.Reconnecting) {
@@ -352,14 +334,7 @@ fun LiveRoomScreen(
                     }
                 }
                 
-                if (hostState.isWaitingRoomDialogVisible) {
-                    MidMeetingWaitingRoomDialog(
-                        pendingRequests = hostState.pendingRequests,
-                        onDismiss = { hostViewModel.hideWaitingRoomDialog() },
-                        onAdmit = { hostViewModel.admitWaitingRoomParticipant(it) },
-                        onReject = { hostViewModel.rejectWaitingRoomParticipant(it) }
-                    )
-                }
+
             }
         }
     }
@@ -549,102 +524,4 @@ fun RoomControls(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun MidMeetingWaitingRoomDialog(
-    pendingRequests: List<com.jbcoder.meeting.network.PendingJoinRequest>,
-    onDismiss: () -> Unit,
-    onAdmit: (String) -> Unit,
-    onReject: (String) -> Unit
-) {
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-        ) {
-            Text(
-                text = "Waiting Room",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                text = "${pendingRequests.size} people waiting",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            
-            if (pendingRequests.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 48.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "No one is waiting.",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            } else {
-                androidx.compose.foundation.lazy.LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f, fill = false),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    lazyItems(pendingRequests) { request ->
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant,
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .padding(16.dp)
-                                    .fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    ParticipantAvatar(name = request.displayName, size = 40)
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    Text(
-                                        text = request.displayName,
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                }
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    TextButton(
-                                        onClick = { onReject(request.id) },
-                                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                                    ) {
-                                        Text("Decline", fontWeight = FontWeight.SemiBold)
-                                    }
-                                    Button(
-                                        onClick = { onAdmit(request.id) },
-                                        colors = ButtonDefaults.buttonColors(containerColor = MeetingPrimary),
-                                        shape = RoundedCornerShape(8.dp)
-                                    ) {
-                                        Text("Admit", fontWeight = FontWeight.SemiBold)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(24.dp))
-        }
-    }
-}
+

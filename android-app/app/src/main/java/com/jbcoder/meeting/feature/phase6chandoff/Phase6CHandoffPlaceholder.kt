@@ -67,6 +67,7 @@ fun Phase6CHandoffPlaceholder(
                 when (val h = handoff) {
                     is RoomConnectionHandoff.HostReady -> {
                         Text("Role: Host", style = MaterialTheme.typography.bodyLarge)
+                        Text("Display Name: ${h.displayName}", style = MaterialTheme.typography.labelSmall)
                         Text("LiveKit Room: ${h.livekitRoomName}", style = MaterialTheme.typography.labelSmall)
                         Text("Token Length: ${h.livekitToken.length}", style = MaterialTheme.typography.labelSmall)
                     }

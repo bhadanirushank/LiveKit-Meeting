@@ -86,13 +86,7 @@ fun JoinMeetingScreen(
                     enabled = uiState !is JoinMeetingUiState.Loading
                 )
 
-                MeetingTextField(
-                    value = formState.passcode,
-                    onValueChange = { viewModel.updatePasscode(it); viewModel.resetError() },
-                    label = "Passcode (Optional)",
-                    placeholder = "If required by host",
-                    enabled = uiState !is JoinMeetingUiState.Loading
-                )
+
 
                 if (uiState is JoinMeetingUiState.Error) {
                     MeetingInlineError(message = (uiState as JoinMeetingUiState.Error).message)

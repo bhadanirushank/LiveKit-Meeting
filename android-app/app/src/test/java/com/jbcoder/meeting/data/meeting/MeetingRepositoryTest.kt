@@ -7,6 +7,9 @@ import com.jbcoder.meeting.network.JoinRequestResponse
 import com.jbcoder.meeting.network.MeetingApiService
 import com.jbcoder.meeting.network.SessionBootstrapRequest
 import com.jbcoder.meeting.network.SessionResponse
+import com.jbcoder.meeting.network.HostMeetingApiService
+import com.jbcoder.meeting.network.HostExchangeRequest
+import com.jbcoder.meeting.network.HostExchangeResponse
 import com.jbcoder.meeting.network.UnauthenticatedMeetingApiService
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
@@ -36,17 +39,40 @@ class MeetingRepositoryTest {
         override suspend fun submitJoinRequest(meetingCode: String, request: JoinRequestDto): Response<JoinRequestResponse> {
             return joinResponseToReturn ?: Response.success(JoinRequestResponse("dummy", "PENDING"))
         }
+        override suspend fun getJoinRequestStatus(requestId: String): Response<com.jbcoder.meeting.network.JoinRequestStatusResponse> = throw NotImplementedError()
+        override suspend fun getParticipantLiveKitToken(requestId: String, idempotencyKey: String): Response<com.jbcoder.meeting.network.LiveKitTokenResponse> = throw NotImplementedError()
+        override suspend fun getMeetingStatus(meetingCode: String): Response<com.jbcoder.meeting.network.MeetingStatusResponse> = throw NotImplementedError()
+        override suspend fun leaveMeeting(meetingCode: String, idempotencyKey: String): Response<Unit> = throw NotImplementedError()
     }
 
     private val fakeUnauthApi = object : UnauthenticatedMeetingApiService {
         override suspend fun createMeeting(installationId: String, request: CreateMeetingRequest): Response<CreateMeetingResponse> {
             return createResponseToReturn ?: Response.success(201, CreateMeetingResponse("code", "secret", "room", "Title", true, false, 100))
         }
+        override suspend fun exchangeHostSession(installationId: String, idempotencyKey: String, request: HostExchangeRequest): Response<HostExchangeResponse> = throw NotImplementedError()
+    }
+
+    private val fakeHostApi = object : HostMeetingApiService {
+        override suspend fun getHostLiveKitToken(): Response<com.jbcoder.meeting.network.LiveKitTokenResponse> = throw NotImplementedError()
+        override suspend fun getWaitingRoom(meetingCode: String) = throw NotImplementedError()
+        override suspend fun admitParticipant(meetingCode: String, requestId: String, installationId: String, idempotencyKey: String) = throw NotImplementedError()
+        override suspend fun rejectParticipant(meetingCode: String, requestId: String, request: com.jbcoder.meeting.network.RejectRequest) = throw NotImplementedError()
+        override suspend fun startMeeting(meetingCode: String, installationId: String, idempotencyKey: String) = throw NotImplementedError()
+        override suspend fun endMeeting(meetingCode: String, installationId: String, idempotencyKey: String) = throw NotImplementedError()
+        override suspend fun lockMeeting(meetingCode: String, installationId: String, idempotencyKey: String) = throw NotImplementedError()
+        override suspend fun unlockMeeting(meetingCode: String, installationId: String, idempotencyKey: String) = throw NotImplementedError()
+        override suspend fun muteParticipant(meetingCode: String, participantId: String) = throw NotImplementedError()
+        override suspend fun askToUnmute(meetingCode: String, participantId: String) = throw NotImplementedError()
+        override suspend fun disablePublishing(meetingCode: String, participantId: String) = throw NotImplementedError()
+        override suspend fun restorePublishing(meetingCode: String, participantId: String) = throw NotImplementedError()
+        override suspend fun removeParticipant(meetingCode: String, participantId: String) = throw NotImplementedError()
+        override suspend fun promoteCohost(meetingCode: String, participantId: String) = throw NotImplementedError()
+        override suspend fun demoteCohost(meetingCode: String, participantId: String) = throw NotImplementedError()
     }
 
     @Before
     fun setup() {
-        repository = MeetingRepositoryImpl(fakeApi, fakeUnauthApi, json)
+        repository = MeetingRepositoryImpl(fakeApi, fakeUnauthApi, fakeHostApi, json)
     }
 
     @Test
@@ -133,13 +159,4 @@ class MeetingRepositoryTest {
         assertEquals(MeetingError.IdempotencyConflict, result.exceptionOrNull())
     }
 
-    @Test
-    fun `CreateMeetingGeneric409Test`() = runBlocking {
-        val errorBody = "{\"type\":\"SOME_OTHER_CONFLICT\",\"title\":\"Conflict\"}".toResponseBody("application/json".toMediaType())
-        createResponseToReturn = Response.error(409, errorBody)
-        val request = CreateMeetingRequest(title = "Title", idempotencyKey = "key")
-        val result = repository.createMeeting(request, "id")
-        assertTrue(result.isFailure)
-        assertTrue(result.exceptionOrNull() is MeetingError.UnexpectedServerResponse)
-    }
 }

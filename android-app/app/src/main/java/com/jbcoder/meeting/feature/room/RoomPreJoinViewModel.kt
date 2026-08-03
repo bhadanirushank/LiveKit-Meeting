@@ -59,7 +59,7 @@ class RoomPreJoinViewModel @Inject constructor(
                 livekitToken = handoff.livekitToken
                 _uiState.value = RoomPreJoinState.Ready(
                     meetingCode = handoff.publicMeetingCode,
-                    displayName = "Host",
+                    displayName = handoff.displayName,
                     isHost = true
                 )
             }
