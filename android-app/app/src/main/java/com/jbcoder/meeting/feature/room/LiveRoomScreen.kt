@@ -195,7 +195,13 @@ fun LiveRoomScreen(
                             )
                         }
 
-
+                        IconButton(onClick = { showHostControls = true }) {
+                            Icon(
+                                imageVector = Icons.Default.MoreVert,
+                                contentDescription = "Host Controls",
+                                tint = MaterialTheme.colorScheme.onBackground
+                            )
+                        }
                     }
 
                     if (state is RoomState.Reconnecting) {
@@ -252,7 +258,6 @@ fun LiveRoomScreen(
                             },
                             onSwitchCamera = { viewModel.switchCamera() },
                             onLeave = { showLeaveConfirmation = true },
-                            onHostControlsClick = { showHostControls = true },
                             enabled = (state is RoomState.Connected)
                         )
                     }
@@ -473,7 +478,6 @@ fun RoomControls(
     onToggleCamera: () -> Unit,
     onSwitchCamera: () -> Unit,
     onLeave: () -> Unit,
-    onHostControlsClick: () -> Unit,
     enabled: Boolean = true
 ) {
     Row(
@@ -504,13 +508,7 @@ fun RoomControls(
             )
         }
         
-        MeetingControlButton(
-            icon = Icons.Default.MoreVert,
-            contentDescription = "Host Controls",
-            isActive = true,
-            onClick = onHostControlsClick
-        )
-        
+
         MeetingControlButton(
             icon = Icons.Default.CallEnd,
             contentDescription = "Leave Meeting",
