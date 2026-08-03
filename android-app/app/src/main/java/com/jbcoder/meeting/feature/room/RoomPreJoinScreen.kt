@@ -25,6 +25,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.Preview
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
+import androidx.compose.ui.viewinterop.AndroidView
 import com.jbcoder.meeting.core.designsystem.*
 
 @Composable
@@ -132,11 +138,7 @@ fun RoomPreJoinScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             if (isCameraEnabled && cameraGranted) {
-                                Text(
-                                    text = "Camera Preview\n(Will start upon join)",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    textAlign = TextAlign.Center
-                                )
+                                CameraPreview(modifier = Modifier.fillMaxSize())
                             } else {
                                 ParticipantAvatar(name = state.displayName, size = 120)
                             }
@@ -224,4 +226,37 @@ fun RoomPreJoinScreen(
             }
         }
     }
+}
+
+@Composable
+fun CameraPreview(modifier: Modifier = Modifier) {
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val context = LocalContext.current
+    val previewView = remember { PreviewView(context) }
+    
+    LaunchedEffect(lifecycleOwner) {
+        val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
+        cameraProviderFuture.addListener({
+            val cameraProvider = cameraProviderFuture.get()
+            val preview = Preview.Builder().build().also {
+                it.setSurfaceProvider(previewView.surfaceProvider)
+            }
+            val cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
+            try {
+                cameraProvider.unbindAll()
+                cameraProvider.bindToLifecycle(
+                    lifecycleOwner,
+                    cameraSelector,
+                    preview
+                )
+            } catch (e: Exception) {
+                // handle error
+            }
+        }, ContextCompat.getMainExecutor(context))
+    }
+
+    AndroidView(
+        factory = { previewView },
+        modifier = modifier
+    )
 }

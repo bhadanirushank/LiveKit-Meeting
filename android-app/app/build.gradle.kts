@@ -86,6 +86,13 @@ dependencies {
     // LiveKit
     implementation(libs.livekit.android)
 
+    // CameraX for prejoin preview
+    val cameraxVersion = "1.3.4"
+    implementation("androidx.camera:camera-core:$cameraxVersion")
+    implementation("androidx.camera:camera-camera2:$cameraxVersion")
+    implementation("androidx.camera:camera-lifecycle:$cameraxVersion")
+    implementation("androidx.camera:camera-view:$cameraxVersion")
+
     // Testing
     testImplementation(libs.junit)
     testImplementation(libs.mockwebserver)
