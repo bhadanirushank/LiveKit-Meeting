@@ -505,19 +505,50 @@ fun ParticipantGrid(
             return
         }
 
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(if (participants.size > 2) 2 else 1),
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            items(participants, key = { it.sid.value ?: it.identity?.value ?: it.hashCode().toString() }) { participant ->
+        when (participants.size) {
+            1 -> {
                 ParticipantTile(
-                    room = room, 
-                    participant = participant, 
+                    room = room,
+                    participant = participants[0],
                     updateTrigger = updateCounter,
-                    modifier = Modifier.fillMaxWidth().aspectRatio(3f / 4f)
+                    modifier = Modifier.fillMaxSize()
                 )
+            }
+            2 -> {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    ParticipantTile(
+                        room = room,
+                        participant = participants[0],
+                        updateTrigger = updateCounter,
+                        modifier = Modifier.fillMaxWidth().weight(1f)
+                    )
+                    ParticipantTile(
+                        room = room,
+                        participant = participants[1],
+                        updateTrigger = updateCounter,
+                        modifier = Modifier.fillMaxWidth().weight(1f)
+                    )
+                }
+            }
+            else -> {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(participants, key = { it.sid.value ?: it.identity?.value ?: it.hashCode().toString() }) { participant ->
+                        ParticipantTile(
+                            room = room, 
+                            participant = participant, 
+                            updateTrigger = updateCounter,
+                            modifier = Modifier.fillMaxWidth().aspectRatio(1f)
+                        )
+                    }
+                }
             }
         }
     }
