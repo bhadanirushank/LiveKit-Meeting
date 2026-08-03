@@ -234,7 +234,7 @@ fun CameraPreview(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val previewView = remember { PreviewView(context) }
     
-    LaunchedEffect(lifecycleOwner) {
+    DisposableEffect(lifecycleOwner) {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
         cameraProviderFuture.addListener({
             val cameraProvider = cameraProviderFuture.get()
@@ -253,6 +253,17 @@ fun CameraPreview(modifier: Modifier = Modifier) {
                 // handle error
             }
         }, ContextCompat.getMainExecutor(context))
+        
+        onDispose {
+            cameraProviderFuture.addListener({
+                try {
+                    val cameraProvider = cameraProviderFuture.get()
+                    cameraProvider.unbindAll()
+                } catch (e: Exception) {
+                    // Ignore
+                }
+            }, ContextCompat.getMainExecutor(context))
+        }
     }
 
     AndroidView(
