@@ -460,6 +460,7 @@ fun ParticipantGrid(
                     LiveKitVideoRenderer(
                         room = room,
                         videoTrack = screenTrack,
+                        isScreenShare = true,
                         modifier = Modifier.fillMaxSize()
                     )
                 }
@@ -558,21 +559,32 @@ fun ParticipantGrid(
 fun LiveKitVideoRenderer(
     room: io.livekit.android.room.Room?,
     videoTrack: VideoTrack,
+    isScreenShare: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     if (room == null) return
+    var currentTrack by remember { mutableStateOf<VideoTrack?>(null) }
+
     AndroidView(
         factory = { context ->
             TextureViewRenderer(context).apply {
                 room.initVideoRenderer(this)
-                videoTrack.addRenderer(this)
+                if (!isScreenShare) {
+                    this.setScalingType(livekit.org.webrtc.RendererCommon.ScalingType.SCALE_ASPECT_FILL)
+                } else {
+                    this.setScalingType(livekit.org.webrtc.RendererCommon.ScalingType.SCALE_ASPECT_FIT)
+                }
             }
         },
         update = { view ->
-            // Update handled by LiveKit internal
+            if (currentTrack != videoTrack) {
+                currentTrack?.removeRenderer(view)
+                videoTrack.addRenderer(view)
+                currentTrack = videoTrack
+            }
         },
         onRelease = { view ->
-            videoTrack.removeRenderer(view)
+            currentTrack?.removeRenderer(view)
             view.release()
         },
         modifier = modifier
