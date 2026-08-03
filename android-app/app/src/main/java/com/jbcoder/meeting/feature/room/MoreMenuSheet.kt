@@ -15,7 +15,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.jbcoder.meeting.core.designsystem.*
-import com.jbcoder.meeting.presentation.theme.MeetingPrimary
+// import com.jbcoder.meeting.presentation.theme.MeetingPrimary
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -80,7 +80,7 @@ fun MoreMenuSheet(
                             onStartScreenShare()
                             onDismiss()
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = MeetingPrimary)
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                     ) {
                         Icon(Icons.Default.ScreenShare, contentDescription = "Share screen")
                         Spacer(modifier = Modifier.width(8.dp))
@@ -162,8 +162,8 @@ fun ParticipantRow(
                         Spacer(modifier = Modifier.width(8.dp))
                         MeetingStatusChip(
                             text = participant.role.name.replace("_", " "),
-                            containerColor = MeetingPrimary.copy(alpha = 0.15f),
-                            contentColor = MeetingPrimary
+                            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                            contentColor = MaterialTheme.colorScheme.primary
                         )
                     }
                 }
@@ -199,7 +199,7 @@ fun ParticipantRow(
                 Box {
                     IconButton(onClick = { menuExpanded = true }) {
                         if (participant.actionState == ParticipantActionState.LOADING) {
-                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = MeetingPrimary)
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.primary)
                         } else {
                             Icon(Icons.Default.MoreVert, contentDescription = "Actions for ${participant.displayName}", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
