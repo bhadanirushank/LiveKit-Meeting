@@ -32,32 +32,45 @@ class SessionCoordinator @Inject constructor(
 
     private val refreshMutex = Mutex()
 
-    suspend fun initializeSession() {
-        try {
-            _sessionState.value = SessionState.INITIALIZING
-            
-            // Load credentials
-            var session = secureSessionStorage.loadSession()
-            val now = System.currentTimeMillis() / 1000
+    suspend fun initializeSession(maxRetries: Int = 3) {
+        var currentAttempt = 0
+        while (currentAttempt < maxRetries) {
+            try {
+                _sessionState.value = SessionState.INITIALIZING
+                
+                // Load credentials
+                var session = secureSessionStorage.loadSession()
+                val now = System.currentTimeMillis() / 1000
 
-            if (session == null || isExpired(session.refreshExpiry, now)) {
-                // No session or refresh token expired -> Bootstrap
-                session = bootstrapNewSession()
-            } else if (isExpired(session.accessExpiry, now)) {
-                // Access expired, refresh valid -> Refresh
-                session = performRefresh()
-            }
+                if (session == null || isExpired(session.refreshExpiry, now)) {
+                    // No session or refresh token expired -> Bootstrap
+                    session = bootstrapNewSession()
+                } else if (isExpired(session.accessExpiry, now)) {
+                    // Access expired, refresh valid -> Refresh
+                    session = performRefresh()
+                }
 
-            if (session != null) {
-                _sessionState.value = SessionState.READY
-            } else {
-                _sessionState.value = SessionState.ERROR
+                if (session != null) {
+                    _sessionState.value = SessionState.READY
+                    return
+                } else {
+                    _sessionState.value = SessionState.ERROR
+                    return
+                }
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                android.util.Log.e("SessionCoordinator", "Session initialization failed (attempt ${currentAttempt + 1})", e)
+                
+                currentAttempt++
+                if (currentAttempt >= maxRetries) {
+                    // Check if it's network error vs unknown
+                    _sessionState.value = SessionState.OFFLINE
+                    return
+                }
+                
+                // Wait before retrying to allow network to settle
+                kotlinx.coroutines.delay(1000L * currentAttempt)
             }
-        } catch (e: Exception) {
-            if (e is kotlinx.coroutines.CancellationException) throw e
-            android.util.Log.e("SessionCoordinator", "Session initialization failed", e)
-            // Check if it's network error vs unknown
-            _sessionState.value = SessionState.OFFLINE
         }
     }
 
