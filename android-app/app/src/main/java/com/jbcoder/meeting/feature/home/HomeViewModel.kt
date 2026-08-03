@@ -45,6 +45,8 @@ class HomeViewModel @Inject constructor(
     }
 
     fun retry() {
-        initialize()
+        viewModelScope.launch {
+            sessionCoordinator.initializeSession()
+        }
     }
 }

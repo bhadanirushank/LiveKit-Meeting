@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
@@ -28,7 +29,13 @@ class DataStoreInstallationIdProvider @Inject constructor(
     private val mutex = Mutex()
 
     override suspend fun getInstallationId(): String = mutex.withLock {
-        val currentId = context.dataStore.data.map { prefs ->
+        val currentId = context.dataStore.data.catch { exception ->
+            if (exception is java.io.IOException) {
+                emit(androidx.datastore.preferences.core.emptyPreferences())
+            } else {
+                throw exception
+            }
+        }.map { prefs ->
             prefs[INSTALLATION_ID_KEY]
         }.first()
 

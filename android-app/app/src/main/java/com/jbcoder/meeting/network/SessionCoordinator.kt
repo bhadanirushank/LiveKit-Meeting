@@ -54,6 +54,8 @@ class SessionCoordinator @Inject constructor(
                 _sessionState.value = SessionState.ERROR
             }
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            android.util.Log.e("SessionCoordinator", "Session initialization failed", e)
             // Check if it's network error vs unknown
             _sessionState.value = SessionState.OFFLINE
         }
