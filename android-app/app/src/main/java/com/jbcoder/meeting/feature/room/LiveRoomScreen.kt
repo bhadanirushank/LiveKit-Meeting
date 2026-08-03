@@ -588,7 +588,7 @@ fun ParticipantTile(
         videoTracks.firstOrNull { it.first.source == Track.Source.CAMERA }?.first?.muted ?: true 
     }
 
-    val borderColor = if (isSpeaking) BrandPurple else Color.White.copy(alpha = 0.05f)
+    val borderColor = if (isSpeaking) BrandPurple else Color.Black.copy(alpha = 0.1f)
     val borderWidth = if (isSpeaking) 2.dp else 1.dp
     val shadowColor = if (isSpeaking) BrandPurple.copy(alpha = 0.1f) else Color.Transparent
 
@@ -609,7 +609,7 @@ fun ParticipantTile(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.White.copy(alpha = 0.2f)),
+                    .background(Color.Black.copy(alpha = 0.05f)),
                 contentAlignment = Alignment.Center
             ) {
                 ParticipantAvatar(
@@ -705,8 +705,8 @@ private fun SelfPreviewPIP(
             .shadow(24.dp, RoundedCornerShape(16.dp))
             .border(4.dp, Color.Black.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
             .clip(RoundedCornerShape(16.dp))
-            .background(Color(0xFF262626)) 
-            .border(2.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(16.dp))
+            .background(SurfaceDark) 
+            .border(2.dp, Color.Black.copy(alpha = 0.1f), RoundedCornerShape(16.dp))
     ) {
         if (!isCameraOff && videoTrack != null) {
             LiveKitVideoRenderer(
@@ -786,7 +786,7 @@ private fun BottomControlBar(
         modifier = Modifier
             .fillMaxWidth()
             .shadow(24.dp, RoundedCornerShape(40.dp))
-            .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(40.dp))
+            .border(1.dp, Color.Black.copy(alpha = 0.1f), RoundedCornerShape(40.dp))
     ) {
         Row(
             modifier = Modifier
@@ -859,8 +859,8 @@ private fun PrimaryButton(
     onClick: () -> Unit,
     enabled: Boolean
 ) {
-    val bgColor = if (isActive) BrandPurple else Color.White.copy(alpha = 0.1f)
-    val borderColor = if (isActive) BrandPurpleLight.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.05f)
+    val bgColor = if (isActive) BrandPurple else Color.Black.copy(alpha = 0.05f)
+    val borderColor = if (isActive) BrandPurpleLight.copy(alpha = 0.3f) else Color.Black.copy(alpha = 0.1f)
 
     Surface(
         shape = CircleShape,
