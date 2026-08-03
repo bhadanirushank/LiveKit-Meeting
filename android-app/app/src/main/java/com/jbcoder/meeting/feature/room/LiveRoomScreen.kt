@@ -261,9 +261,6 @@ fun LiveRoomScreen(
                 if (showHostControls) {
                     HostControlsSheet(
                         state = hostState,
-                        onLockMeeting = { hostViewModel.lockMeeting() },
-                        onUnlockMeeting = { hostViewModel.unlockMeeting() },
-                        onEndMeetingClick = { hostViewModel.showConfirmation(ConfirmationDialogState.EndMeeting()) },
                         onMuteParticipant = { hostViewModel.muteParticipant(it) },
                         onAskToUnmute = { hostViewModel.askToUnmute(it) },
                         onDisablePublishing = { hostViewModel.disablePublishing(it) },

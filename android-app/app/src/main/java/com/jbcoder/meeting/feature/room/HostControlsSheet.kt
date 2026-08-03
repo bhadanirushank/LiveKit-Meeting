@@ -21,9 +21,6 @@ import com.jbcoder.meeting.presentation.theme.MeetingPrimary
 @Composable
 fun HostControlsSheet(
     state: HostControlsUiState,
-    onLockMeeting: () -> Unit,
-    onUnlockMeeting: () -> Unit,
-    onEndMeetingClick: () -> Unit,
     onMuteParticipant: (String) -> Unit,
     onAskToUnmute: (String) -> Unit,
     onDisablePublishing: (String) -> Unit,
@@ -55,39 +52,7 @@ fun HostControlsSheet(
                 modifier = Modifier.padding(bottom = 24.dp)
             )
 
-            // Meeting wide actions
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                if (state.meetingLocked) {
-                    MeetingSecondaryButton(
-                        text = "Unlock Meeting",
-                        onClick = onUnlockMeeting,
-                        enabled = !state.isActionLoading,
-                        modifier = Modifier.weight(1f)
-                    )
-                } else {
-                    MeetingSecondaryButton(
-                        text = "Lock Meeting",
-                        onClick = onLockMeeting,
-                        enabled = !state.isActionLoading,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
 
-                Button(
-                    onClick = onEndMeetingClick,
-                    enabled = !state.isActionLoading,
-                    modifier = Modifier.weight(1f).height(52.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Text("End for All", fontWeight = FontWeight.SemiBold)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(32.dp))
 
             Text(
                 text = "Participants (${state.participants.size})",
