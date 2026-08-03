@@ -32,7 +32,7 @@ class SessionCoordinator @Inject constructor(
 
     private val refreshMutex = Mutex()
 
-    suspend fun initializeSession(maxRetries: Int = 3) {
+    suspend fun initializeSession(maxRetries: Int = 7) {
         var currentAttempt = 0
         while (currentAttempt < maxRetries) {
             try {
@@ -68,8 +68,8 @@ class SessionCoordinator @Inject constructor(
                     return
                 }
                 
-                // Wait before retrying to allow network to settle
-                kotlinx.coroutines.delay(1000L * currentAttempt)
+                // Wait 2 seconds before retrying to allow slow emulator networks to fully connect
+                kotlinx.coroutines.delay(2000L)
             }
         }
     }
