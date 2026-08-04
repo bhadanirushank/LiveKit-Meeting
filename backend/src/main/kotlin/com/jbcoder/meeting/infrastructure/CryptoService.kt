@@ -62,6 +62,19 @@ object CryptoService {
     }
 
     /**
+     * Generates a secure random numeric string of the specified length.
+     * Useful for numeric meeting codes.
+     */
+    fun generateSecureNumericString(length: Int): String {
+        val chars = "0123456789"
+        val sb = StringBuilder(length)
+        for (i in 0 until length) {
+            sb.append(chars[secureRandom.nextInt(chars.length)])
+        }
+        return sb.toString()
+    }
+
+    /**
      * Generates a URL-safe Base64 encoded token (e.g., for refresh tokens or session identifiers).
      */
     fun generateUrlSafeToken(byteLength: Int = 32): String {

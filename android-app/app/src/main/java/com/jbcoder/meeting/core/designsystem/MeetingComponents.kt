@@ -23,7 +23,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.jbcoder.meeting.presentation.theme.MeetingPrimary
+import androidx.compose.ui.unit.sp
 
 @Composable
 fun MeetingPrimaryButton(
@@ -34,15 +34,23 @@ fun MeetingPrimaryButton(
 ) {
     Button(
         onClick = onClick,
-        modifier = modifier.fillMaxWidth().height(52.dp),
-        enabled = enabled,
-        shape = RoundedCornerShape(12.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .defaultMinSize(minHeight = 64.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = MeetingPrimary,
-            contentColor = Color.White
-        )
+            containerColor = MaterialTheme.colorScheme.onBackground,
+            contentColor = MaterialTheme.colorScheme.background,
+            disabledContainerColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.12f),
+            disabledContentColor = MaterialTheme.colorScheme.background.copy(alpha = 0.38f)
+        ),
+        contentPadding = PaddingValues(16.dp),
+        enabled = enabled
     ) {
-        Text(text = text, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelLarge
+        )
     }
 }
 
@@ -103,9 +111,9 @@ fun MeetingTextField(
                 focusedContainerColor = MaterialTheme.colorScheme.surface,
                 unfocusedContainerColor = MaterialTheme.colorScheme.surface,
                 errorContainerColor = MaterialTheme.colorScheme.surface,
-                focusedBorderColor = MeetingPrimary,
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
                 unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
-                focusedLabelColor = MeetingPrimary,
+                focusedLabelColor = MaterialTheme.colorScheme.primary,
             )
         )
         if (isError && errorMessage != null) {
@@ -145,7 +153,7 @@ fun MeetingLoadingIndicator(
 ) {
     CircularProgressIndicator(
         modifier = modifier,
-        color = MeetingPrimary,
+        color = MaterialTheme.colorScheme.primary,
         strokeWidth = 3.dp
     )
 }
@@ -227,7 +235,7 @@ fun MeetingCodeCard(
             Icon(
                 imageVector = Icons.Default.ContentCopy,
                 contentDescription = "Copy meeting code",
-                tint = MeetingPrimary
+                tint = MaterialTheme.colorScheme.primary
             )
         }
     }
@@ -240,7 +248,7 @@ fun ParticipantAvatar(
     size: Int = 48
 ) {
     val initials = name.split(" ").mapNotNull { it.firstOrNull()?.uppercase() }.take(2).joinToString("")
-    val bgColor = MeetingPrimary.copy(alpha = 0.1f)
+    val bgColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
     
     Box(
         modifier = modifier
@@ -251,7 +259,7 @@ fun ParticipantAvatar(
     ) {
         Text(
             text = initials,
-            color = MeetingPrimary,
+            color = MaterialTheme.colorScheme.primary,
             fontWeight = FontWeight.Bold,
             fontSize = (size * 0.4).sp
         )

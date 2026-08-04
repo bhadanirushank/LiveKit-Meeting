@@ -8,7 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
 private val DarkColorScheme = darkColorScheme(
-    primary = MeetingPrimary,
+    primary = MeetingPrimaryDark,
     onPrimary = MeetingOnPrimaryDark,
     background = MeetingBackgroundDark,
     onBackground = MeetingTextPrimaryDark,
@@ -21,7 +21,7 @@ private val DarkColorScheme = darkColorScheme(
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = MeetingPrimary,
+    primary = MeetingPrimaryLight,
     onPrimary = MeetingOnPrimaryLight,
     background = MeetingBackgroundLight,
     onBackground = MeetingTextPrimaryLight,

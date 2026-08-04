@@ -19,7 +19,8 @@ val MeetingAccentSurfaceLight = Color(0xFFEEECFF)
 val MeetingTextPrimaryLight = Color(0xFF0A0A0A)
 val MeetingTextSecondaryLight = Color(0xFF525252)
 val MeetingBorderLight = Color(0xFFE5E5E5)
-val MeetingOnPrimaryLight = Color(0xFFFFFFFF)
+val MeetingPrimaryLight = Color(0xFF111827) // Black
+val MeetingOnPrimaryLight = Color(0xFFFFFFFF) // White text
 
 // Dark Theme Colors
 val MeetingBackgroundDark = Color(0xFF0A0A0A)
@@ -29,4 +30,5 @@ val MeetingAccentSurfaceDark = Color(0xFF282443)
 val MeetingTextPrimaryDark = Color(0xFFFAFAFA)
 val MeetingTextSecondaryDark = Color(0xFFA3A3A3)
 val MeetingBorderDark = Color(0xFF262626)
-val MeetingOnPrimaryDark = Color(0xFF0A0A0A)
+val MeetingPrimaryDark = Color(0xFFF9FAFB) // White
+val MeetingOnPrimaryDark = Color(0xFF111827) // Black text

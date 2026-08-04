@@ -99,7 +99,9 @@ class RoomPreJoinViewModel @Inject constructor(
         val code = (uiState.value as? RoomPreJoinState.Ready)?.meetingCode ?: ""
         
         viewModelScope.launch {
-            roomSessionManager.connect(url, token, code)
+            // Use current state to get display name (if user changed it in PreJoin)
+            val finalName = (uiState.value as? RoomPreJoinState.Ready)?.displayName?.takeIf { it.isNotBlank() } ?: "Unknown"
+            roomSessionManager.connect(url, token, code, finalName)
         }
         
         // Clear local token ref to avoid memory lingering longer than needed

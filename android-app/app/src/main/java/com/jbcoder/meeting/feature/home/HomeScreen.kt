@@ -24,6 +24,8 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
+import android.content.res.Configuration
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.jbcoder.meeting.feature.home.components.HomeHeadline
@@ -62,6 +64,9 @@ fun HomeScreenContent(
     val isReady = uiState is HomeUiState.Ready
     var showDevDialog by remember { mutableStateOf(false) }
     var ipInput by remember { mutableStateOf(currentIp) }
+    
+    val configuration = LocalConfiguration.current
+    val isExpanded = configuration.screenWidthDp >= 600 || configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     Surface(modifier = Modifier.fillMaxSize()) {
         BoxWithConstraints(
@@ -70,65 +75,137 @@ fun HomeScreenContent(
                 .background(MaterialTheme.colorScheme.background)
                 .safeDrawingPadding()
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = maxHeight)
-                    .verticalScroll(rememberScrollState())
-                    .padding(24.dp)
-            ) {
-                // 1. App Header
+            val currentMaxHeight = maxHeight
+            
+            if (isExpanded) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(32.dp),
+                    horizontalArrangement = Arrangement.spacedBy(48.dp)
                 ) {
-                    MinimalMeetingMark()
-                    IconButton(onClick = { 
-                        ipInput = currentIp
-                        showDevDialog = true 
-                    }) {
-                        Icon(Icons.Default.Settings, contentDescription = "Developer Settings", tint = MaterialTheme.colorScheme.onBackground)
+                    // Left Column: Branding and Headline
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight(),
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            MinimalMeetingMark()
+                        }
+                        Spacer(modifier = Modifier.height(48.dp))
+                        HomeHeadline()
+                        Spacer(modifier = Modifier.height(48.dp))
+                    }
+                    
+                    // Right Column: Actions and Status
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight(),
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                            IconButton(onClick = { 
+                                ipInput = currentIp
+                                showDevDialog = true 
+                            }) {
+                                Icon(Icons.Default.Settings, contentDescription = "Developer Settings", tint = MaterialTheme.colorScheme.onBackground)
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(24.dp))
+                        PrimaryMeetingButton(
+                            text = "Create Meeting",
+                            onClick = onNavigateToCreate,
+                            enabled = isReady
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        SecondaryMeetingButton(
+                            text = "Join with Code",
+                            onClick = onNavigateToJoin,
+                            enabled = isReady
+                        )
+                        Spacer(modifier = Modifier.height(48.dp))
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            MeetingStatusIndicator(status = uiState)
+                            if (uiState is HomeUiState.Offline || uiState is HomeUiState.Error) {
+                                Spacer(modifier = Modifier.height(16.dp))
+                                TextButton(onClick = onRetry) {
+                                    Text("Retry Connection")
+                                }
+                            }
+                        }
                     }
                 }
-
-                Spacer(modifier = Modifier.height(48.dp))
-
-                // 2. Main Headline and Supporting Text
-                HomeHeadline()
-
-                Spacer(modifier = Modifier.height(48.dp))
-
-                // 3. Actions
-                PrimaryMeetingButton(
-                    text = "Create Meeting",
-                    onClick = onNavigateToCreate,
-                    enabled = isReady
-                )
-                
-                Spacer(modifier = Modifier.height(16.dp))
-
-                SecondaryMeetingButton(
-                    text = "Join with Code",
-                    onClick = onNavigateToJoin,
-                    enabled = isReady
-                )
-
-                // 4. Flexible Space to push status to bottom
-                Spacer(modifier = Modifier.weight(1f))
-                Spacer(modifier = Modifier.height(48.dp))
-
-                // 5. Connection Status and Retry
+            } else {
                 Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = currentMaxHeight)
+                        .verticalScroll(rememberScrollState())
+                        .padding(24.dp)
                 ) {
-                    MeetingStatusIndicator(status = uiState)
+                    // 1. App Header
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        MinimalMeetingMark()
+                        IconButton(onClick = { 
+                            ipInput = currentIp
+                            showDevDialog = true 
+                        }) {
+                            Icon(Icons.Default.Settings, contentDescription = "Developer Settings", tint = MaterialTheme.colorScheme.onBackground)
+                        }
+                    }
 
-                    if (uiState is HomeUiState.Offline || uiState is HomeUiState.Error) {
-                        Spacer(modifier = Modifier.height(16.dp))
-                        TextButton(onClick = onRetry) {
-                            Text("Retry Connection")
+                    Spacer(modifier = Modifier.height(48.dp))
+
+                    // 2. Main Headline and Supporting Text
+                    HomeHeadline()
+
+                    Spacer(modifier = Modifier.height(48.dp))
+
+                    // 3. Actions
+                    PrimaryMeetingButton(
+                        text = "Create Meeting",
+                        onClick = onNavigateToCreate,
+                        enabled = isReady
+                    )
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    SecondaryMeetingButton(
+                        text = "Join with Code",
+                        onClick = onNavigateToJoin,
+                        enabled = isReady
+                    )
+
+                    // 4. Flexible Space to push status to bottom
+                    Spacer(modifier = Modifier.weight(1f))
+                    Spacer(modifier = Modifier.height(48.dp))
+
+                    // 5. Connection Status and Retry
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        MeetingStatusIndicator(status = uiState)
+
+                        if (uiState is HomeUiState.Offline || uiState is HomeUiState.Error) {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            TextButton(onClick = onRetry) {
+                                Text("Retry Connection")
+                            }
                         }
                     }
                 }

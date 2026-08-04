@@ -22,6 +22,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.platform.LocalConfiguration
+import android.content.res.Configuration
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -108,10 +110,144 @@ fun RoomPreJoinScreen(
                     }
                 }
                 is RoomPreJoinState.Ready -> {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(24.dp),
+                    val configuration = LocalConfiguration.current
+                    val isExpanded = configuration.screenWidthDp >= 600 || configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+                    
+                    if (isExpanded) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(32.dp),
+                            horizontalArrangement = Arrangement.spacedBy(48.dp)
+                        ) {
+                            // Left Pane: Camera Preview and Media Controls
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight(),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                // Camera Preview / Avatar Placeholder
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .aspectRatio(4f/3f) // Wider aspect ratio for landscape
+                                        .clip(RoundedCornerShape(24.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (isCameraEnabled && cameraGranted) {
+                                        CameraPreview(modifier = Modifier.fillMaxSize())
+                                    } else {
+                                        ParticipantAvatar(name = state.displayName, size = 120)
+                                    }
+                                    
+                                    // Audio indicator in preview
+                                    if (!isMicEnabled) {
+                                        Box(
+                                            modifier = Modifier
+                                                .align(Alignment.TopEnd)
+                                                .padding(16.dp)
+                                                .size(32.dp)
+                                                .background(MaterialTheme.colorScheme.error, CircleShape),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.MicOff,
+                                                contentDescription = "Microphone muted",
+                                                tint = MaterialTheme.colorScheme.onError,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                                
+                                Spacer(modifier = Modifier.height(32.dp))
+                                
+                                // Media Controls
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(24.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    MeetingControlButton(
+                                        icon = if (isMicEnabled) Icons.Default.Mic else Icons.Default.MicOff,
+                                        contentDescription = "Toggle Mic",
+                                        isActive = isMicEnabled,
+                                        onClick = {
+                                            if (!isMicEnabled && !audioGranted) {
+                                                audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                            } else {
+                                                viewModel.toggleMic()
+                                            }
+                                        }
+                                    )
+                                    
+                                    MeetingControlButton(
+                                        icon = if (isCameraEnabled) Icons.Default.Videocam else Icons.Default.VideocamOff,
+                                        contentDescription = "Toggle Camera",
+                                        isActive = isCameraEnabled,
+                                        onClick = {
+                                            if (!isCameraEnabled && !cameraGranted) {
+                                                cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                                            } else {
+                                                viewModel.toggleCamera()
+                                            }
+                                        }
+                                    )
+                                }
+                            }
+                            
+                            // Right Pane: Meeting Info and Actions
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight(),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Text(
+                                    text = state.meetingCode,
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onBackground
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "Joining as ${state.displayName}",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                
+                                Spacer(modifier = Modifier.height(48.dp))
+                                
+                                // Actions
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    MeetingPrimaryButton(
+                                        text = "Join Now",
+                                        onClick = { 
+                                            viewModel.enterMeeting(
+                                                hasAudioPerm = audioGranted,
+                                                hasCameraPerm = cameraGranted,
+                                                onStarted = onNavigateLiveRoom
+                                            )
+                                        }
+                                    )
+                                    MeetingSecondaryButton(
+                                        text = "Cancel",
+                                        onClick = onNavigateHome
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
@@ -132,7 +268,7 @@ fun RoomPreJoinScreen(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .aspectRatio(3f/4f)
+                                .weight(1f)
                                 .clip(RoundedCornerShape(24.dp))
                                 .background(MaterialTheme.colorScheme.surfaceVariant),
                             contentAlignment = Alignment.Center
@@ -197,7 +333,7 @@ fun RoomPreJoinScreen(
                             )
                         }
                         
-                        Spacer(modifier = Modifier.weight(1f))
+                        Spacer(modifier = Modifier.height(32.dp))
                         
                         // Actions
                         Row(
@@ -223,6 +359,7 @@ fun RoomPreJoinScreen(
                         }
                     }
                 }
+            }
             }
         }
     }

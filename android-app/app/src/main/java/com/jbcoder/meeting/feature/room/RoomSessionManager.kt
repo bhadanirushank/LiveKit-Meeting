@@ -38,9 +38,18 @@ sealed interface RoomState {
     data class FatalError(val message: String) : RoomState
 }
 
+data class ChatMessage(
+    val id: String = java.util.UUID.randomUUID().toString(),
+    val senderName: String,
+    val message: String,
+    val timestamp: Long = System.currentTimeMillis(),
+    val isLocal: Boolean
+)
+
 data class RoomUiState(
     val room: Room? = null,
     val meetingCode: String = "",
+    val localDisplayName: String = "",
     val updateCounter: Int = 0,
     val roomState: RoomState = RoomState.Disconnected,
     val participants: List<Participant> = emptyList(),
@@ -49,6 +58,8 @@ data class RoomUiState(
     val hasAudioPermission: Boolean = false,
     val hasCameraPermission: Boolean = false,
     val isScreenSharing: Boolean = false,
+    val chatMessages: List<ChatMessage> = emptyList(),
+    val meetingDurationSeconds: Long = 0,
     val lastError: String? = null
 )
 
@@ -66,6 +77,25 @@ class RoomSessionManager @Inject constructor(
     private var currentLiveKitToken: String? = null
     private var currentUrl: String? = null
     private var isConnectInProgress = false
+    private var timerJob: Job? = null
+
+    private fun startTimer() {
+        timerJob?.cancel()
+        timerJob = scope.launch {
+            var seconds = 0L
+            while (true) {
+                kotlinx.coroutines.delay(1000)
+                seconds++
+                _uiState.update { it.copy(meetingDurationSeconds = seconds) }
+            }
+        }
+    }
+
+    private fun stopTimer() {
+        timerJob?.cancel()
+        timerJob = null
+        _uiState.update { it.copy(meetingDurationSeconds = 0) }
+    }
 
     fun prepare(hasAudioPerm: Boolean, hasCameraPerm: Boolean) {
         _uiState.update { 
@@ -82,51 +112,54 @@ class RoomSessionManager @Inject constructor(
         }
     }
 
-    suspend fun connect(url: String, token: String, meetingCode: String) {
+    fun connect(url: String, token: String, meetingCode: String, localDisplayName: String = "") {
+        _uiState.update { it.copy(meetingCode = meetingCode, localDisplayName = localDisplayName, roomState = RoomState.Connecting, lastError = null) }
         if (room != null || isConnectInProgress) return
         isConnectInProgress = true
         currentLiveKitToken = token
         currentUrl = url
 
-        try {
-            val newRoom = LiveKit.create(
-                appContext = context,
-                options = RoomOptions(
-                    adaptiveStream = true,
-                    dynacast = true
+        scope.launch {
+            try {
+                val newRoom = LiveKit.create(
+                    appContext = context,
+                    options = RoomOptions(
+                        adaptiveStream = true,
+                        dynacast = true
+                    )
                 )
-            )
-            
-            room = newRoom
-            
-            _uiState.update { 
-                it.copy(
-                    roomState = RoomState.Connecting,
-                    room = newRoom,
-                    meetingCode = meetingCode
-                ) 
-            }
-            
-            eventJob = scope.launch {
-                newRoom.events.collect { event ->
-                    handleRoomEvent(event)
+                
+                room = newRoom
+                
+                _uiState.update { 
+                    it.copy(
+                        roomState = RoomState.Connecting,
+                        room = newRoom,
+                        meetingCode = meetingCode
+                    ) 
                 }
-            }
+                
+                eventJob = scope.launch {
+                    newRoom.events.collect { event ->
+                        handleRoomEvent(event)
+                    }
+                }
 
-            newRoom.connect(
-                url = url,
-                token = token,
-                options = ConnectOptions()
-            )
-            
-            // Automatically publish tracks if enabled
-            publishInitialTracks()
-            
-        } catch (e: Exception) {
-            _uiState.update { it.copy(roomState = RoomState.FatalError(e.message ?: "Failed to connect")) }
-            cleanup(preserveError = true)
-        } finally {
-            isConnectInProgress = false
+                newRoom.connect(
+                    url = url,
+                    token = token,
+                    options = ConnectOptions()
+                )
+                
+                // Automatically publish tracks if enabled
+                publishInitialTracks()
+                
+            } catch (e: Exception) {
+                _uiState.update { it.copy(roomState = RoomState.FatalError(e.message ?: "Failed to connect")) }
+                cleanup(preserveError = true)
+            } finally {
+                isConnectInProgress = false
+            }
         }
     }
 
@@ -216,11 +249,32 @@ class RoomSessionManager @Inject constructor(
         }
     }
 
+    fun sendChatMessage(text: String) {
+        val r = room ?: return
+        scope.launch {
+            try {
+                r.localParticipant.publishData(
+                    data = text.toByteArray(Charsets.UTF_8),
+                    topic = "chat"
+                )
+                val msg = ChatMessage(
+                    senderName = "You",
+                    message = text,
+                    isLocal = true
+                )
+                _uiState.update { it.copy(chatMessages = it.chatMessages + msg) }
+            } catch (e: Exception) {
+                android.util.Log.e("RoomSessionManager", "Failed to send chat", e)
+            }
+        }
+    }
+
     private fun handleRoomEvent(event: RoomEvent) {
         when (event) {
             is RoomEvent.Connected -> {
                 _uiState.update { it.copy(roomState = RoomState.Connected) }
                 updateParticipants()
+                startTimer()
             }
             is RoomEvent.Reconnecting -> {
                 _uiState.update { it.copy(roomState = RoomState.Reconnecting) }
@@ -250,6 +304,18 @@ class RoomSessionManager @Inject constructor(
             is RoomEvent.FailedToConnect -> {
                 _uiState.update { it.copy(roomState = RoomState.FatalError(event.error.message ?: "Failed to connect")) }
             }
+            is RoomEvent.DataReceived -> {
+                if (event.topic == "chat") {
+                    val text = String(event.data, Charsets.UTF_8)
+                    val sender = event.participant?.name?.takeIf { it.isNotBlank() } ?: event.participant?.identity?.value ?: "Unknown"
+                    val msg = ChatMessage(
+                        senderName = sender,
+                        message = text,
+                        isLocal = false
+                    )
+                    _uiState.update { it.copy(chatMessages = it.chatMessages + msg) }
+                }
+            }
             else -> {}
         }
     }
@@ -276,6 +342,7 @@ class RoomSessionManager @Inject constructor(
         room?.disconnect()
         eventJob?.cancel()
         eventJob = null
+        stopTimer()
         room?.release()
         room = null
         currentLiveKitToken = null

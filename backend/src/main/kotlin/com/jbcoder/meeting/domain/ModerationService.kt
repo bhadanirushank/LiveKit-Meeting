@@ -82,7 +82,7 @@ object ModerationService {
 
         // Call LiveKit asynchronously/after commit
         try {
-            LiveKitParticipantService.removeParticipant(meeting.livekitRoomName, livekitIdentity)
+            LiveKitParticipantService.removeParticipant(meeting.livekitRoomName, livekitIdentity).getOrThrow()
             transaction {
                 ModerationOutboxTable.update({ ModerationOutboxTable.id eq outboxId }) {
                     it[status] = "COMPLETED"

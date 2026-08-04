@@ -45,7 +45,7 @@ object MeetingService {
             var publicCode: String
             var retries = 0
             do {
-                publicCode = CryptoService.generateSecureRandomString(12)
+                publicCode = CryptoService.generateSecureNumericString(10)
                 val exists = MeetingRepository.findByPublicCode(publicCode) != null
                 retries++
                 if (retries > 5) throw Exception("Failed to generate unique meeting code")

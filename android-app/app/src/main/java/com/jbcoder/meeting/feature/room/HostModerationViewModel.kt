@@ -95,10 +95,16 @@ class HostModerationViewModel @Inject constructor(
             // Preserve existing action states
             val existingState = _state.value.participants.find { it.id == parsedMeta.id }?.actionState ?: ParticipantActionState.IDLE
 
+            val finalDisplayName = if (isLocalParticipant) {
+                roomSessionManager.uiState.value.localDisplayName.takeIf { it.isNotBlank() } ?: p.name ?: "Unknown"
+            } else {
+                p.name ?: "Unknown"
+            }
+
             ModerationParticipantUi(
                 id = parsedMeta.id,
                 livekitIdentity = p.identity?.value ?: "",
-                displayName = p.name ?: "Unknown",
+                displayName = finalDisplayName,
                 role = role,
                 isMicOn = hasAudio,
                 isCameraOn = hasVideo,

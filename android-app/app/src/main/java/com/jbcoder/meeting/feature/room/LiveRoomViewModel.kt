@@ -35,6 +35,10 @@ class LiveRoomViewModel @Inject constructor(
         roomSessionManager.disconnect()
     }
     
+    fun sendChatMessage(text: String) {
+        roomSessionManager.sendChatMessage(text)
+    }
+    
     override fun onCleared() {
         super.onCleared()
         // Wait, should we disconnect on onCleared?

@@ -103,7 +103,7 @@ fun MoreMenuSheet(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(state.participants, key = { it.id }) { participant ->
-                    ParticipantRow(
+                    ModerationParticipantRow(
                         participant = participant,
                         amIHost = state.role == MeetingRole.HOST,
                         onMute = { onMuteParticipant(participant.id) },
@@ -121,7 +121,7 @@ fun MoreMenuSheet(
 }
 
 @Composable
-fun ParticipantRow(
+fun ModerationParticipantRow(
     participant: ModerationParticipantUi,
     amIHost: Boolean,
     onMute: () -> Unit,

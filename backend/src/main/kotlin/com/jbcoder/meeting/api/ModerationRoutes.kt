@@ -25,7 +25,7 @@ fun Route.moderationRoutes() {
             post("/remove") {
                 val meetingCode = call.parameters["meetingCode"] ?: return@post call.respond(HttpStatusCode.BadRequest)
                 val participantIdStr = call.parameters["participantId"] ?: return@post call.respond(HttpStatusCode.BadRequest)
-                val req = call.receive<RemoveParticipantRequest>()
+                val req = try { call.receive<RemoveParticipantRequest>() } catch (e: Exception) { RemoveParticipantRequest() }
                 
                 val meeting = MeetingRepository.findByPublicCode(meetingCode) ?: return@post call.respond(HttpStatusCode.NotFound)
                 val participantId = try { UUID.fromString(participantIdStr) } catch(e: Exception) { return@post call.respond(HttpStatusCode.BadRequest) }

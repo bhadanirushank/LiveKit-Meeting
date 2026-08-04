@@ -62,8 +62,8 @@ class JoinMeetingViewModel @Inject constructor(
     fun submit() {
         val form = _formState.value
         val code = form.meetingCode.trim() // strict whitespace rejection is for inside the code
-        if (code.length != 12) {
-            _uiState.value = JoinMeetingUiState.Error("Meeting code must be exactly 12 characters")
+        if (code.length != 10) {
+            _uiState.value = JoinMeetingUiState.Error("Meeting code must be exactly 10 digits")
             return
         }
 
