@@ -23,8 +23,8 @@ android {
     buildTypes {
         debug {
             isMinifyEnabled = false
-            buildConfigField("String", "BASE_URL", "\"http://192.168.29.172:8080\"")
-            buildConfigField("String", "LIVEKIT_URL", "\"ws://192.168.29.172:7880\"")
+            buildConfigField("String", "BASE_URL", "\"http://192.168.8.224:8080\"")
+            buildConfigField("String", "LIVEKIT_URL", "\"ws://192.168.8.224:7880\"")
         }
         release {
             isMinifyEnabled = true
