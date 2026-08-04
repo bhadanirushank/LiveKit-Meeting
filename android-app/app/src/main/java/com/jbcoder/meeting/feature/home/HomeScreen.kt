@@ -13,6 +13,15 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -35,7 +44,9 @@ fun HomeScreen(
         uiState = uiState,
         onNavigateToCreate = onNavigateToCreate,
         onNavigateToJoin = onNavigateToJoin,
-        onRetry = viewModel::retry
+        onRetry = viewModel::retry,
+        currentIp = viewModel.getCustomIp(),
+        onSaveIp = { viewModel.saveCustomIp(it) }
     )
 }
 
@@ -44,9 +55,13 @@ fun HomeScreenContent(
     uiState: HomeUiState,
     onNavigateToCreate: () -> Unit,
     onNavigateToJoin: () -> Unit,
-    onRetry: () -> Unit
+    onRetry: () -> Unit,
+    currentIp: String = "",
+    onSaveIp: (String) -> Unit = {}
 ) {
     val isReady = uiState is HomeUiState.Ready
+    var showDevDialog by remember { mutableStateOf(false) }
+    var ipInput by remember { mutableStateOf(currentIp) }
 
     Surface(modifier = Modifier.fillMaxSize()) {
         BoxWithConstraints(
@@ -63,7 +78,19 @@ fun HomeScreenContent(
                     .padding(24.dp)
             ) {
                 // 1. App Header
-                MinimalMeetingMark()
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    MinimalMeetingMark()
+                    IconButton(onClick = { 
+                        ipInput = currentIp
+                        showDevDialog = true 
+                    }) {
+                        Icon(Icons.Default.Settings, contentDescription = "Developer Settings", tint = MaterialTheme.colorScheme.onBackground)
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(48.dp))
 
@@ -107,6 +134,34 @@ fun HomeScreenContent(
                 }
             }
         }
+    }
+
+    if (showDevDialog) {
+        AlertDialog(
+            onDismissRequest = { showDevDialog = false },
+            title = { Text("Developer Settings") },
+            text = {
+                Column {
+                    Text("Backend IP Address:")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = ipInput,
+                        onValueChange = { ipInput = it },
+                        placeholder = { Text("e.g. 192.168.8.224") },
+                        singleLine = true
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    onSaveIp(ipInput.trim())
+                    showDevDialog = false
+                }) { Text("Save & Restart") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDevDialog = false }) { Text("Cancel") }
+            }
+        )
     }
 }
 

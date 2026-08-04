@@ -2,8 +2,8 @@ package com.jbcoder.meeting.feature.room
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.jbcoder.meeting.BuildConfig
 import com.jbcoder.meeting.data.meeting.RoomConnectionHandoff
+import com.jbcoder.meeting.network.DevConfigManager
 import com.jbcoder.meeting.data.meeting.RoomConnectionHandoffStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,7 +26,8 @@ sealed interface RoomPreJoinState {
 @HiltViewModel
 class RoomPreJoinViewModel @Inject constructor(
     private val handoffStore: RoomConnectionHandoffStore,
-    private val roomSessionManager: RoomSessionManager
+    private val roomSessionManager: RoomSessionManager,
+    private val devConfigManager: DevConfigManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<RoomPreJoinState>(RoomPreJoinState.Initializing)
@@ -84,7 +85,7 @@ class RoomPreJoinViewModel @Inject constructor(
 
     fun enterMeeting(hasAudioPerm: Boolean, hasCameraPerm: Boolean, onStarted: () -> Unit) {
         val token = livekitToken ?: return
-        val url = BuildConfig.LIVEKIT_URL
+        val url = devConfigManager.getLiveKitUrl()
         if (url.isNullOrBlank()) {
             _uiState.value = RoomPreJoinState.Error("LiveKit URL is missing")
             return

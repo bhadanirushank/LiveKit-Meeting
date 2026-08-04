@@ -4,6 +4,7 @@ import com.jbcoder.meeting.BuildConfig
 import com.jbcoder.meeting.network.AuthInterceptor
 import com.jbcoder.meeting.network.MeetingApiService
 import com.jbcoder.meeting.network.SessionCoordinator
+import com.jbcoder.meeting.network.DynamicHostInterceptor
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import dagger.Module
 import dagger.Provides
@@ -31,7 +32,8 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideOkHttpClient(
-        authInterceptor: AuthInterceptor
+        authInterceptor: AuthInterceptor,
+        dynamicHostInterceptor: DynamicHostInterceptor
     ): OkHttpClient {
         val loggingInterceptor = HttpLoggingInterceptor().apply {
             level = if (BuildConfig.DEBUG) {
@@ -45,6 +47,7 @@ object NetworkModule {
 
         return OkHttpClient.Builder()
             .addInterceptor(loggingInterceptor)
+            .addInterceptor(dynamicHostInterceptor)
             .addInterceptor(authInterceptor)
             .connectTimeout(10, TimeUnit.SECONDS)
             .readTimeout(10, TimeUnit.SECONDS)
@@ -77,7 +80,9 @@ object NetworkModule {
     @Provides
     @Singleton
     @javax.inject.Named("Unauthenticated")
-    fun provideUnauthenticatedOkHttpClient(): OkHttpClient {
+    fun provideUnauthenticatedOkHttpClient(
+        dynamicHostInterceptor: DynamicHostInterceptor
+    ): OkHttpClient {
         val loggingInterceptor = HttpLoggingInterceptor().apply {
             level = if (BuildConfig.DEBUG) {
                 HttpLoggingInterceptor.Level.BASIC
@@ -87,6 +92,7 @@ object NetworkModule {
         }
         return OkHttpClient.Builder()
             .addInterceptor(loggingInterceptor)
+            .addInterceptor(dynamicHostInterceptor)
             .connectTimeout(10, TimeUnit.SECONDS)
             .readTimeout(10, TimeUnit.SECONDS)
             .writeTimeout(10, TimeUnit.SECONDS)
@@ -120,7 +126,8 @@ object NetworkModule {
     @Singleton
     @javax.inject.Named("HostAuthenticated")
     fun provideHostOkHttpClient(
-        hostAuthInterceptor: com.jbcoder.meeting.network.HostAuthInterceptor
+        hostAuthInterceptor: com.jbcoder.meeting.network.HostAuthInterceptor,
+        dynamicHostInterceptor: DynamicHostInterceptor
     ): OkHttpClient {
         val loggingInterceptor = HttpLoggingInterceptor().apply {
             level = if (BuildConfig.DEBUG) {
@@ -133,6 +140,7 @@ object NetworkModule {
 
         return OkHttpClient.Builder()
             .addInterceptor(loggingInterceptor)
+            .addInterceptor(dynamicHostInterceptor)
             .addInterceptor(hostAuthInterceptor)
             .connectTimeout(10, TimeUnit.SECONDS)
             .readTimeout(10, TimeUnit.SECONDS)

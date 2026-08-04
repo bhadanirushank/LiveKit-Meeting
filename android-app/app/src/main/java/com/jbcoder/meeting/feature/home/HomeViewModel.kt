@@ -3,6 +3,8 @@ package com.jbcoder.meeting.feature.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jbcoder.meeting.network.SessionCoordinator
+import com.jbcoder.meeting.network.DevConfigManager
+import com.jbcoder.meeting.security.SecureSessionStorage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,7 +21,9 @@ sealed class HomeUiState {
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    private val sessionCoordinator: SessionCoordinator
+    private val sessionCoordinator: SessionCoordinator,
+    private val devConfigManager: DevConfigManager,
+    private val secureSessionStorage: SecureSessionStorage
 ) : ViewModel() {
     private val _uiState = MutableStateFlow<HomeUiState>(HomeUiState.Initializing)
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
@@ -46,6 +50,18 @@ class HomeViewModel @Inject constructor(
 
     fun retry() {
         viewModelScope.launch {
+            sessionCoordinator.initializeSession()
+        }
+    }
+
+    fun getCustomIp(): String {
+        return devConfigManager.getCustomIp() ?: ""
+    }
+
+    fun saveCustomIp(ip: String) {
+        devConfigManager.setCustomIp(ip)
+        viewModelScope.launch {
+            secureSessionStorage.clearSession()
             sessionCoordinator.initializeSession()
         }
     }
